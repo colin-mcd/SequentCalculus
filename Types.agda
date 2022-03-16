@@ -26,75 +26,75 @@ ccat {true} {false} a1 l2 = a1 ∷ l2
 ccat {false} {true} l1 a2 = l1 ∷ʳ a2
 ccat {false} {false} l1 l2 = l1 ++ l2
 
-infixr 4 _,_
-_,_ = ccat
+infixr 4 _¸_
+_¸_ = ccat
 
-infixl 0 _==>_
+infix 0 _==>_
 data _==>_ : Cedent → Cedent → Set where
   leaf : (A : Sentence) → ([ A ] ==> [ A ])
 
 
   cut : (Γ Δ : Cedent) (A : Sentence) →
-    (Γ ==> Δ , A) → (A , Γ ==> Δ) →
+    (Γ ==> Δ ¸ A) → (A ¸ Γ ==> Δ) →
     (Γ ==> Δ)
 
 
   exchangeₗ : (Γ Π Δ : Cedent) (A B : Sentence) →
-    (Γ , A , B , Π ==> Δ) →
-    (Γ , B , A , Π ==> Δ)
+    (Γ ¸ A ¸ B ¸ Π ==> Δ) →
+    (Γ ¸ B ¸ A ¸ Π ==> Δ)
 
   exchangeᵣ : (Γ Π Δ : Cedent) (A B : Sentence) →
-    (Γ ==> Δ , A , B , Π) →
-    (Γ ==> Δ , B , A , Π)
+    (Γ ==> Δ ¸ A ¸ B ¸ Π) →
+    (Γ ==> Δ ¸ B ¸ A ¸ Π)
 
   contractionₗ : (Γ Δ   : Cedent) (A   : Sentence) →
-    (A , A , Γ ==> Δ) →
-    (A , Γ ==> Δ)
+    (A ¸ A ¸ Γ ==> Δ) →
+    (A ¸ Γ ==> Δ)
 
   contractionᵣ : (Γ Δ : Cedent) (A : Sentence) →
-    (Γ ==> Δ , A , A) →
-    (Γ ==> Δ , A)
+    (Γ ==> Δ ¸ A ¸ A) →
+    (Γ ==> Δ ¸ A)
 
   weakeningₗ : (Γ Δ : Cedent) (A : Sentence) →
     (Γ ==> Δ) →
-    (A , Γ ==> Δ)
+    (A ¸ Γ ==> Δ)
 
   weakeningᵣ : (Γ Δ : Cedent) (A : Sentence) →
     (Γ ==> Δ) →
-    (Γ ==> Δ , A)
+    (Γ ==> Δ ¸ A)
 
 
   ¬ₗ : (Γ Δ : Cedent) (A : Sentence) →
-    (Γ ==> Δ , A) →
-    (¬ A , Γ ==> Δ)
+    (Γ ==> Δ ¸ A) →
+    (¬ A ¸ Γ ==> Δ)
 
   ¬ᵣ : (Γ Δ : Cedent) (A : Sentence) →
-    (A , Γ ==> Δ) →
-    (Γ ==> Δ , ¬ A)
+    (A ¸ Γ ==> Δ) →
+    (Γ ==> Δ ¸ ¬ A)
 
   ∧ₗ : (Γ Δ : Cedent) (A B : Sentence) →
-    (A , B , Γ ==> Δ) →
-    (A ∧ B , Γ ==> Δ)
+    (A ¸ B ¸ Γ ==> Δ) →
+    (A ∧ B ¸ Γ ==> Δ)
 
   ∧ᵣ : (Γ Δ : Cedent) (A B : Sentence) →
-    (Γ ==> Δ , A) → (Γ ==> Δ , B) →
-    (Γ ==> Δ , A ∧ B)
+    (Γ ==> Δ ¸ A) → (Γ ==> Δ ¸ B) →
+    (Γ ==> Δ ¸ A ∧ B)
 
   ∨ₗ : (Γ Δ : Cedent) (A B : Sentence) →
-    (A , Γ ==> Δ) → (B , Γ ==> Δ) →
-    (A ∨ B , Γ ==> Δ)
+    (A ¸ Γ ==> Δ) → (B ¸ Γ ==> Δ) →
+    (A ∨ B ¸ Γ ==> Δ)
 
   ∨ᵣ : (Γ Δ : Cedent) (A B : Sentence) →
-    (Γ ==> Δ , A , B) →
-    (Γ ==> Δ , A ∨ B)
+    (Γ ==> Δ ¸ A ¸ B) →
+    (Γ ==> Δ ¸ A ∨ B)
 
   ⊃ₗ : (Γ Δ : Cedent) (A B : Sentence) →
-    (Γ ==> Δ , A) → (B , Γ ==> Δ) →
-    (A ⊃ B , Γ ==> Δ)
+    (Γ ==> Δ ¸ A) → (B ¸ Γ ==> Δ) →
+    (A ⊃ B ¸ Γ ==> Δ)
 
   ⊃ᵣ : (Γ Δ : Cedent) (A B : Sentence) →
-    (A , Γ ==> Δ , B) →
-    (Γ ==> Δ , A ⊃ B)
+    (A ¸ Γ ==> Δ ¸ B) →
+    (Γ ==> Δ ¸ A ⊃ B)
 
 {-
 

@@ -19,3 +19,9 @@ isCutFree (∨ₗ Γ Δ A B x1 x2) = isCutFree x1 && isCutFree x2
 isCutFree (∨ᵣ Γ Δ A B x) = isCutFree x
 isCutFree (⊃ₗ Γ Δ A B x1 x2) = isCutFree x1 && isCutFree x2
 isCutFree (⊃ᵣ Γ Δ A B x) = isCutFree x
+
+infix 0 _==>'_
+
+_==>'_ : Cedent → Cedent → Set
+Γ ==>' Δ = Σ (Γ ==> Δ) (λ p → isCutFree p ≡ true)
+
