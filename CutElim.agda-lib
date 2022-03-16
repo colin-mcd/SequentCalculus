@@ -1,0 +1,3 @@
+name: CutElim
+depend: standard-library
+include: .
