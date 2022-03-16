@@ -1,12 +1,13 @@
 module Types where
-open import Data.Bool hiding (_∨_; _∧_)
-open import Data.List
---open import Data.Vec hiding (_∷_; _∷ʳ_; _++_)
-open import Data.Nat hiding (_⊔_)
-open import Level using (Level; _⊔_)
+open import lib
 
-Atom : Set
-Atom = ℕ
+data Atom : Set where
+  zero : Atom
+  suc : Atom → Atom
+
+infixr 6 _∧_
+infixr 5 _∨_
+infix 7 ¬_
 
 data Sentence : Set where
   atom : Atom → Sentence
@@ -18,16 +19,6 @@ data Sentence : Set where
 Cedent : Set
 Cedent = List Sentence
 
-infixl 3 _==>_
-data Sequent : Set where
-  _==>_ : Cedent -> Cedent → Sequent
-
-antecedent : Sequent → Cedent
-antecedent (a ==> s) = a
-
-succedent : Sequent → Cedent
-succedent (a ==> s) = s
-
 ccat : ∀ {l r : Bool} {A : Set} →
   (if l then A else List A) → (if r then A else List A) → List A
 ccat {true} {true} a1 a2 = a1 ∷ a2 ∷ []
@@ -35,73 +26,94 @@ ccat {true} {false} a1 l2 = a1 ∷ l2
 ccat {false} {true} l1 a2 = l1 ∷ʳ a2
 ccat {false} {false} l1 l2 = l1 ++ l2
 
-infixr 9 _,_
+infixr 4 _,_
 _,_ = ccat
 
-data Proof : Sequent → Set where
-  leaf : (A : Sentence) → Proof ([ A ] ==> [ A ])
+infixl 0 _==>_
+data _==>_ : Cedent → Cedent → Set where
+  leaf : (A : Sentence) → ([ A ] ==> [ A ])
 
 
   cut : (Γ Δ : Cedent) (A : Sentence) →
-    Proof (Γ ==> Δ , A) → Proof (A , Γ ==> Δ) →
-    Proof (Γ ==> Δ)
+    (Γ ==> Δ , A) → (A , Γ ==> Δ) →
+    (Γ ==> Δ)
 
 
   exchangeₗ : (Γ Π Δ : Cedent) (A B : Sentence) →
-    Proof (Γ , A , B , Π ==> Δ) →
-    Proof (Γ , B , A , Π ==> Δ)
+    (Γ , A , B , Π ==> Δ) →
+    (Γ , B , A , Π ==> Δ)
 
   exchangeᵣ : (Γ Π Δ : Cedent) (A B : Sentence) →
-    Proof (Γ ==> Δ , A , B , Π) →
-    Proof (Γ ==> Δ , B , A , Π)
+    (Γ ==> Δ , A , B , Π) →
+    (Γ ==> Δ , B , A , Π)
 
   contractionₗ : (Γ Δ   : Cedent) (A   : Sentence) →
-    Proof (A , A , Γ ==> Δ) →
-    Proof (A , Γ ==> Δ)
+    (A , A , Γ ==> Δ) →
+    (A , Γ ==> Δ)
 
   contractionᵣ : (Γ Δ : Cedent) (A : Sentence) →
-    Proof (Γ ==> Δ , A , A) →
-    Proof (Γ ==> Δ , A)
+    (Γ ==> Δ , A , A) →
+    (Γ ==> Δ , A)
 
   weakeningₗ : (Γ Δ : Cedent) (A : Sentence) →
-    Proof (Γ ==> Δ) →
-    Proof (A , Γ ==> Δ)
+    (Γ ==> Δ) →
+    (A , Γ ==> Δ)
 
   weakeningᵣ : (Γ Δ : Cedent) (A : Sentence) →
-    Proof (Γ ==> Δ) →
-    Proof (Γ ==> Δ , A)
+    (Γ ==> Δ) →
+    (Γ ==> Δ , A)
 
 
   ¬ₗ : (Γ Δ : Cedent) (A : Sentence) →
-    Proof (Γ ==> Δ , A) →
-    Proof (¬ A , Γ ==> Δ)
+    (Γ ==> Δ , A) →
+    (¬ A , Γ ==> Δ)
 
   ¬ᵣ : (Γ Δ : Cedent) (A : Sentence) →
-    Proof (A , Γ ==> Δ) →
-    Proof (Γ ==> Δ , ¬ A)
+    (A , Γ ==> Δ) →
+    (Γ ==> Δ , ¬ A)
 
   ∧ₗ : (Γ Δ : Cedent) (A B : Sentence) →
-    Proof (A , B , Γ ==> Δ) →
-    Proof (A ∧ B , Γ ==> Δ)
+    (A , B , Γ ==> Δ) →
+    (A ∧ B , Γ ==> Δ)
 
   ∧ᵣ : (Γ Δ : Cedent) (A B : Sentence) →
-    Proof (Γ ==> Δ , A) → Proof (Γ ==> Δ , B) →
-    Proof (Γ ==> Δ , A ∧ B)
+    (Γ ==> Δ , A) → (Γ ==> Δ , B) →
+    (Γ ==> Δ , A ∧ B)
 
   ∨ₗ : (Γ Δ : Cedent) (A B : Sentence) →
-    Proof (A , Γ ==> Δ) → Proof (B , Γ ==> Δ) →
-    Proof (A ∨ B , Γ ==> Δ)
+    (A , Γ ==> Δ) → (B , Γ ==> Δ) →
+    (A ∨ B , Γ ==> Δ)
 
   ∨ᵣ : (Γ Δ : Cedent) (A B : Sentence) →
-    Proof (Γ ==> Δ , A , B) →
-    Proof (Γ ==> Δ , A ∨ B)
+    (Γ ==> Δ , A , B) →
+    (Γ ==> Δ , A ∨ B)
 
   ⊃ₗ : (Γ Δ : Cedent) (A B : Sentence) →
-    Proof (Γ ==> Δ , A) → Proof (B , Γ ==> Δ) →
-    Proof (A ⊃ B , Γ ==> Δ)
+    (Γ ==> Δ , A) → (B , Γ ==> Δ) →
+    (A ⊃ B , Γ ==> Δ)
 
   ⊃ᵣ : (Γ Δ : Cedent) (A B : Sentence) →
-    Proof (A , Γ ==> Δ , B) →
-    Proof (Γ ==> Δ , A ⊃ B)
+    (A , Γ ==> Δ , B) →
+    (Γ ==> Δ , A ⊃ B)
 
---isCutFree : {S} → 
+{-
+
+isCutFree : ∀ {Γ Δ} → (Γ ==> Δ) → Bool
+isCutFree (leaf A) = {!!}P
+isCutFree (cut Γ Δ A x x₁) = {!!}
+isCutFree (exchangeₗ Γ Π _ A B x) = {!!}
+isCutFree (exchangeᵣ Γ Π Δ A B x) = {!!}
+isCutFree (contractionₗ Γ Δ A x) = {!!}
+isCutFree (contractionᵣ Γ Δ A x) = {!!}
+isCutFree (weakeningₗ Γ Δ A x) = {!!}
+isCutFree (weakeningᵣ Γ Δ A x) = {!!}
+isCutFree (¬ₗ Γ Δ A x) = {!!}
+isCutFree (¬ᵣ Γ Δ A x) = {!!}
+isCutFree (∧ₗ Γ Δ A B x) = {!!}
+isCutFree (∧ᵣ Γ Δ A B x x₁) = {!!}
+isCutFree (∨ₗ Γ Δ A B x x₁) = {!!}
+isCutFree (∨ᵣ Γ Δ A B x) = {!!}
+isCutFree (⊃ₗ Γ Δ A B x x₁) = {!!}
+isCutFree (⊃ᵣ Γ Δ A B x) = {!!}
+
+-}
