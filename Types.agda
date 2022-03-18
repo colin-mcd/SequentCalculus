@@ -2,8 +2,8 @@ module Types where
 open import lib
 
 data Atom : Set where
-  zero : Atom
-  suc : Atom → Atom
+  aZ : Atom
+  aS : Atom → Atom
 
 infixr 6 _∧_
 infixr 5 _∨_
@@ -15,6 +15,19 @@ data Sentence : Set where
   _∨_ : Sentence → Sentence → Sentence -- "\or"
   _∧_ : Sentence → Sentence → Sentence -- "\and"
   _⊃_ : Sentence → Sentence → Sentence -- "\sup"
+
+_=atom_ : Atom → Atom → Bool
+aZ =atom aZ = true
+(aS a1) =atom (aS a2) = a1 =atom a2
+a1 =atom a2 = false
+
+_=sentence_ : Sentence → Sentence → Bool
+(atom v) =sentence (atom u) = v =atom u
+(¬ s) =sentence (¬ t) = s =sentence t
+(s1 ∨ s2) =sentence (t1 ∨ t2) = (s1 =sentence t1) && (s2 =sentence t2)
+(s1 ∧ s2) =sentence (t1 ∧ t2) = (s1 =sentence t1) && (s2 =sentence t2)
+(s1 ⊃ s2) =sentence (t1 ⊃ t2) = (s1 =sentence t1) && (s2 =sentence t2)
+s =sentence t = false
 
 Cedent : Set
 Cedent = List Sentence
@@ -31,7 +44,7 @@ _¸_ = ccat
 
 infix 0 _==>_
 data _==>_ : Cedent → Cedent → Set where
-  leaf : (A : Sentence) → ([ A ] ==> [ A ])
+  leaf : (A : Atom) → ([ atom A ] ==> [ atom A ])
 
 
   cut : (Γ Δ : Cedent) (A : Sentence) →
