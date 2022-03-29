@@ -54,15 +54,26 @@ isCutFreeS :: ProofS -> Bool
 isCutFreeS = foldProofS $ \ rl cs ss rs -> rl == RuleCut || or rs
 isCutFree = isCutFreeS . simplify
 
-proofDepthS :: ProofS -> Int
-proofDepthS = foldProofS $ \ rl cs ss rs -> (if rl `elem` weakRules then 0 else 1) + maxOf rs
-proofDepth = proofDepthS . simplify
+-- Sentence depth
+dp :: Sentence -> Int
+dp (Atom v) = 0
+dp (Neg a) = 1 + dp a
+dp (Conj a b) = 1 + max (dp a) (dp b)
+dp (Disj a b) = 1 + max (dp a) (dp b)
+dp (Imp a b) = 1 + max (dp a) (dp b)
+
+--proofDepthS :: ProofS -> Int
+--proofDepthS = foldProofS $ \ rl cs ss rs -> (if rl `elem` weakRules then 0 else 1) + maxOf rs
+--proofDepth = proofDepthS . simplify
 
 maxOf :: (Ord n, Num n) => [n] -> n
 maxOf = foldr max 0
 
 maxCutDepthS :: ProofS -> Int
-maxCutDepthS = foldProofSS $ \ rl cs ss ps rs -> if rl == RuleCut then proofDepthS (ProofS rl cs ss ps) else maxOf rs
+maxCutDepthS =
+  foldProofSS $ \ rl cs ss ps rs ->
+  -- if rl == RuleCut then ss = [s] for some s
+  if rl == RuleCut then dp (head ss) else maxOf rs
 maxCutDepth :: Proof -> Int
 maxCutDepth = maxCutDepthS . simplify
 
@@ -336,6 +347,44 @@ weakeningRto gamma x = h [] gamma' gamma x where
           x3 = exchangesAnteR [] pi gamma g x2 -- pi, g, gamma ==> delta
       in
         x3
+
+-- contractDouble :: gamma -> delta -> (gamma, gamma ==> delta, delta) -> (gamma ==> delta)
+contractDouble :: Cedent -> Cedent -> Proof -> Proof
+contractDouble gamma delta x = contractDoubleL gamma (contractDoubleR delta x)
+
+-- contractDoubleL :: gamma -> (gamma, gamma ==> delta) -> (gamma ==> delta)
+contractDoubleL :: Cedent -> Proof -> Proof
+contractDoubleL gamma x = h [] gamma x where
+  (_, delta) = typeof x
+  -- pi -> gamma -> (pi, gamma, gamma ==> delta) -> (pi, gamma ==> delta)
+  h pi [] x = x
+  h pi (g : gamma) x =
+    -- x: pi, g, gamma, g, gamma ==> delta
+    -- want: pi, g, gamma ==> delta
+    let x1 = exchangesAnteL [] pi (gamma ++ g : gamma) g x -- g, pi, gamma, g, gamma ==> delta
+        x2 = exchangesAnteL [g] (pi ++ gamma) gamma g x1 -- g, g, pi, gamma, gamma ==> delta
+        x3 = contractionL x2 -- g, pi, gamma, gamma ==> delta
+        x4 = exchangesAnteR [] pi (gamma ++ gamma) g x3 -- pi, g, gamma, gamma ==> delta
+        x5 = h (pi ++ [g]) gamma x4 -- pi, g, gamma ==> delta
+    in
+      x5
+
+-- contractDoubleR :: delta -> (gamma ==> delta, delta) -> (gamma ==> delta)
+contractDoubleR :: Cedent -> Proof -> Proof
+contractDoubleR delta x = h [] delta x where
+  (gamma, _) = typeof x
+  -- pi -> delta -> (gamma ==> pi, delta, delta) -> (gamma ==> pi, delta)
+  h pi [] x = x
+  h pi (d : delta) x =
+    -- x: gamma ==> pi, d, delta, d, delta
+    -- want: gamma ==> pi, d, delta
+    let x1 = exchangesSuccR (pi ++ d : delta) delta [] d x1 -- gamma ==> pi, d, delta, delta, d
+        x2 = exchangesSuccR pi (delta ++ delta) [d] d x2 -- gamma ==> pi, delta, delta, d, d
+        x3 = contractionR x2 -- gamma ==> pi, delta, delta, d
+        x4 = exchangesSuccL pi (delta ++ delta) [] d x3 -- gamma ==> pi, d, delta, delta
+        x5 = h (pi ++ [d]) delta x4 -- gamma ==> pi, d, delta
+    in
+      x5
 
 --------------------------------------------------------------------------------
 

@@ -9,7 +9,6 @@ infix 9 -*
 (-*) :: Cedent -> Sentence -> Cedent
 (-*) = flip deleteDAs
 
--- Assumes that c is not in anteL, anteR, succL, or succR, and that it is not atomic
 -- f -> c -> (gamma ==> delta) -> (anteL, gamma, anteR ==> succL, (delta -* c), succR)
 -- First arg (f) is a special case for when delPatchR'ing with c = (Neg ...) and the
 -- rule NegR, or c = (Conj ...) and ConjL, etc. It takes the delPatchR'd proof and the
@@ -17,11 +16,15 @@ infix 9 -*
 -- See pp. 38-39 in Buss' Handbook of Proof Theory, ch. 1
 delPatchR :: ([Proof] -> Proof -> Proof) -> Sentence -> (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
 delPatchR f c ws@(anteL, anteR, succL, succR) (Leaf a) =
-  -- want: anteL, a, anteR ==> succL, ([Atom a] -* c), succR
-  let x1 = Leaf a -- a ==> a
-      x2 = weakenings ws x1 -- anteL, a, anteR ==> succL, a, succR
-  in -- c is not atomic, so (c /= Atom a) and thus ([Atom a] -* c = [Atom a])
-    x2
+  if c == Atom a then
+    -- want: anteL, a, anteR ==> succL, succR
+    f [] (Leaf a)
+  else
+    -- want: anteL, a, anteR ==> succL, a, succR
+    let x1 = Leaf a -- a ==> a
+        x2 = weakenings ws x1 -- anteL, a, anteR ==> succL, a, succR
+    in
+      x2
 delPatchR f c ws@(anteL, anteR, succL, succR) (Cut gamma delta a x y) =
   -- x: gamma ==> delta, a
   -- y: a, gamma ==> delta
@@ -221,16 +224,30 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (ImpL gamma delta a b x y) =
   in
     z2
 delPatchR f c ws@(anteL, anteR, succL, succR) (ImpR gamma delta a b x) =
-  error "TODO"
+  -- x: a, gamma ==> delta, b
+  -- want: anteL, gamma, anteR ==> succL, (delta -* c), (Imp a b -* c), succR
+  if c == Imp a b then
+    f [delPatchR f c ws x] (ImpR gamma delta a b x)
+  else
+    let x1 = delPatchR f c ws x -- anteL, a, gamma, anteR ==> succL, (delta -* c), (b -* c), succR
+        x2 = exchangesAnteL [] anteL (gamma ++ anteR) a x1 -- a, anteL, gamma, anteR ==> succL, (delta -* c), (b -* c), succR
+        x3 = if c == a then weakeningR b x1 else exchangesSuccR (succL ++ (delta -* c)) succR [] b x2 -- a, anteL, gamma, anteR ==> succL, (delta -* c), succR, b
+        x4 = impR x3 -- anteL, gamma, anteR ==> succL, (delta -* c), succR, (Imp a b)
+        x5 = exchangesSuccL (succL ++ (delta -* c)) succR [] (Imp a b) x4 -- anteL, gamma, anteR ==> succL, (delta -* c), (Imp a b), succR
+    in
+      x5
 
 -- f -> c -> (gamma ==> delta) -> (anteL, (gamma -* c), anteR ==> succL, delta, succR)
 delPatchL :: ([Proof] -> Proof -> Proof) -> Sentence -> (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
 delPatchL f c ws@(anteL, anteR, succL, succR) (Leaf a) =
   -- want: anteL, (a -* c), anteR ==> succL, a, succR
-  let x1 = Leaf a -- a ==> a
-      x2 = weakenings ws x1 -- anteL, a, anteR ==> succL, a, succR
-  in -- c is not atomic, so (c /= Atom a) and thus (a -* c = a)
-    x2
+  if c == Atom a then
+    f [] (Leaf a)
+  else
+    let x1 = Leaf a -- a ==> a
+        x2 = weakenings ws x1 -- anteL, a, anteR ==> succL, a, succR
+    in
+      x2
 delPatchL f c ws@(anteL, anteR, succL, succR) (Cut gamma delta a x y) =
   error "TODO"
 delPatchL f c ws@(anteL, anteR, succL, succR) (ExchangeL gamma delta pi a b x) =
@@ -265,10 +282,20 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (ImpR gamma delta a b x) =
 -- a -> (Q : (gamma ==> delta, a)) (R : (a, gamma ==> delta)) → (gamma ==> delta)
 cutReduce :: Sentence -> Proof -> Proof -> Proof
 cutReduce (Atom v) q r =
-  error "TODO"
+  -- q: gamma ==> delta, v
+  -- r: v, gamma ==> delta
+  let r1 = delPatchL fr (Atom v) ([], gamma, delta, []) r -- gamma, (gamma -* v) ==> delta, delta
+      r2 = weakeningLto (gamma ++ gamma) r1 -- gamma, gamma ==> delta, delta
+      r3 = contractDouble gamma delta r2 -- gamma ==> delta
+  in
+    r3
   where
     (gamma, _) = typeof q
     (_, delta) = typeof r
+    
+    -- _ -> _ -> (gamma ==> delta, v)
+    fr :: [Proof] -> Proof -> Proof
+    fr [] (Leaf _) = q
 
 cutReduce (Neg b) q r =
   -- q: gamma ==> delta, (Neg b)
@@ -361,9 +388,11 @@ cutLower d = expand . cutLowerS d . simplify
 cutLowerS :: Int -> ProofS -> ProofS
 cutLowerS d =
   foldProofSS $ \ rl cs ss ps rs ->
-  if rl == RuleCut && succ d == proofDepthS (ProofS rl cs ss ps) then
+  -- if rl == RuleCut then ss = [a] for some a
+  if rl == RuleCut && succ d == dp (head ss) then
     let [a] = ss
-        [x1, x2] = ps in cutReduceS a x1 x2
+        [x1, x2] = rs in -- TODO: = rs or = ps?
+      cutReduceS a x1 x2
   else
     ProofS rl cs ss rs
 
