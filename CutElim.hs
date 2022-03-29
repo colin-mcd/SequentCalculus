@@ -209,7 +209,17 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (DisjR gamma delta a b x) =
         in
           x5
 delPatchR f c ws@(anteL, anteR, succL, succR) (ImpL gamma delta a b x y) =
-  error "TODO"
+  -- x: gamma ==> delta, a
+  -- y: b, gamma ==> delta
+  -- want: anteL, (Imp a b), gamma, anteR ==> succL, (delta -* c), succR
+  let x1 = delPatchR f c ws x -- anteL, gamma, anteR ==> succL, (delta -* c), (a -* c), succR
+      y1 = delPatchR f c ws y -- anteL, b, gamma, anteR ==> succL, (delta -* c), succR
+      x2 = if c == a then weakeningR a x1 else exchangesSuccR (succL ++ (delta -* c)) succR [] a x1 -- anteL, gamma, anteR ==> succL, (delta -* c), succR, a
+      y2 = exchangesAnteL [] anteL (gamma ++ anteR) b y1 -- b, anteL, gamma, anteR ==> succL, (delta -* c), succR
+      z1 = impL x2 y2 -- (Imp a b), anteL, gamma, anteR ==> succL, (delta -* c), succR
+      z2 = exchangesAnteR [] anteL (gamma ++ anteR) (Imp a b) z1
+  in
+    z2
 delPatchR f c ws@(anteL, anteR, succL, succR) (ImpR gamma delta a b x) =
   error "TODO"
 
