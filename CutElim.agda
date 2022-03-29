@@ -3,9 +3,12 @@ open import lib
 open import Types
 open import Helpers
 
+deleteDAf :  Sentence → Sentence → Maybe Sentence
+deleteDAf A B = if A =sentence B then nothing else just B
+
 -- Deletes direct ancestors
 deleteDAs : Sentence → Cedent → Cedent
-deleteDAs A = mapMaybe λ B → if A =sentence B then nothing else just B
+deleteDAs A = mapMaybe (deleteDAf A)
 
 --foldlInd : ∀ {A : Set} {P : List A → Set} → P [] → ((a : A) → (l : List A) → P l → P (l ∷ʳ a)) → (l : List A) → P l
 --foldlInd n c [] = n
@@ -39,6 +42,39 @@ exchangesRₗ {Γ} {B ∷ Δ} {Π} {Λ} {A} p rewrite sym (++-assoc Γ [ B ] (Δ
 exchangesRₗ' : ∀ {Γ Δ : Cedent} {A : Sentence} → (A ¸ Γ ==> Δ) → (Γ ¸ A ==> Δ)
 exchangesRₗ' {Γ} {Δ} {A} p = exchangesRₗ {[]} {Γ} {[]} {Δ} {A} (congF {P = λ x → x ==> Δ} (sym (++-identityʳ (A ∷ Γ))) p)
 
+++-mapMaybe : ∀ {A B : Set} → (f : A → Maybe B) → (xs ys : List A) → ((mapMaybe f xs ++ mapMaybe f ys) ≡ mapMaybe f (xs ++ ys))
+++-mapMaybe f [] ys = refl
+++-mapMaybe f (x ∷ xs) ys with f x
+...| (just b) rewrite ++-mapMaybe f xs ys = refl
+...| nothing rewrite ++-mapMaybe f xs ys = refl
+
+boolInd : ∀ {P : Bool → Set} → (b : Bool) → P true → P false → P b
+boolInd true t f = t
+boolInd false t f = f
+
+deleteDAcase : ∀ {X : Set} (Γ Δ : Cedent) (A B : Sentence) →
+  ((deleteDAs B (Γ ¸ A ¸ Δ) ≡ (deleteDAs B Γ ¸ deleteDAs B Δ)) → X) →
+  ((deleteDAs B (Γ ¸ A ¸ Δ) ≡ (deleteDAs B Γ ¸ A ¸ deleteDAs B Δ)) → X) → X
+deleteDAcase {X} Γ Δ A B delA inclA
+  rewrite ++-mapMaybe (deleteDAf B) Γ (A ¸ Δ)
+  = boolInd {P = λ x → ((B =sentence A) ≡ x) → X}
+      (B =sentence A) (λ p → delA (delH p)) (λ p → inclA (inclH p)) refl
+  where
+  delH : (B =sentence A) ≡ true → deleteDAs B (Γ ¸ A ¸ Δ) ≡ (deleteDAs B Γ ¸ deleteDAs B Δ)
+  delH p rewrite sym (++-mapMaybe (deleteDAf B) Γ (A ¸ Δ)) | p = refl
+
+  inclH : (B =sentence A) ≡ false → deleteDAs B (Γ ¸ A ¸ Δ) ≡ (deleteDAs B Γ ¸ A ¸ deleteDAs B Δ)
+  inclH p rewrite sym (++-mapMaybe (deleteDAf B) Γ (A ¸ Δ)) | p = refl
+
+deleteDAcase' : ∀ {X : Cedent → Set} {Γ Δ : Cedent} {A B : Sentence} → X (deleteDAs B Γ ¸ deleteDAs B Δ) → X (deleteDAs B Γ ¸ A ¸ deleteDAs B Δ) → X (deleteDAs B (Γ ¸ A ¸ Δ))
+deleteDAcase' {X} {Γ} {Δ} {A} {B} xdel xincl = deleteDAcase Γ Δ A B delH inclH
+  where
+  delH : deleteDAs B (Γ ¸ A ¸ Δ) ≡ (deleteDAs B Γ ¸ deleteDAs B Δ) → X (deleteDAs B (Γ ¸ A ¸ Δ))
+  delH p rewrite sym (++-mapMaybe (deleteDAf B) Γ (A ¸ Δ)) | p = xdel
+
+  inclH : deleteDAs B (Γ ¸ A ¸ Δ) ≡ (deleteDAs B Γ ¸ A ¸ deleteDAs B Δ) → X (deleteDAs B (Γ ¸ A ¸ Δ))
+  inclH p rewrite sym (++-mapMaybe (deleteDAf B) Γ (A ¸ Δ)) | p = xincl
+
 
 cutReduce : ∀ {Γ Δ : Cedent} (A : Sentence) (Q : (Γ ==> Δ ¸ A)) (R : (A ¸ Γ ==> Δ)) → Γ ==> Δ
 cutReduce (atom v) Q R =
@@ -54,7 +90,36 @@ cutReduce (¬ B) Q R =
   mkQ' (cut _ _ C x x₁) = {!!}
   mkQ' (exchangeₗ Γ Π Δ C D x) rewrite (++-assoc Γ (D ¸ C ¸ Π) [ B ]) =
     exchangeₗ Γ (Π ∷ʳ B) (Δ ⁻) C D (congF {P = λ x → x ==> Δ ⁻} (++-assoc Γ (C ¸ D ¸ Π) [ B ]) (mkQ' x))
-  mkQ' (exchangeᵣ Γ Π Δ C D x) = {!!}
+--  mkQ' (exchangeᵣ Γ Π Δ C D x) rewrite sym (++-mapMaybe (deleteDAf (¬ B)) Δ (D ∷ C ∷ Π)) = {!!}
+  mkQ' (exchangeᵣ Γ Π Δ C D x) = deleteDAcase Δ (C ¸ Π) D (¬ B) (deleteDAcase Δ Π C (¬ B) case1 case2) (deleteDAcase (Δ ¸ D) Π C (¬ B) case3 case4)
+    where
+    case1 : deleteDAs (¬ B) (Δ ¸ C ¸ Π) ≡ (deleteDAs (¬ B) Δ ¸ deleteDAs (¬ B) Π) →
+      deleteDAs (¬ B) (Δ ¸ D ¸ C ¸ Π) ≡ (deleteDAs (¬ B) Δ ¸ deleteDAs (¬ B) (C ¸ Π)) →
+      Γ ¸ B ==> ((Δ ¸ D ¸ C ¸ Π) ⁻)
+    case1 p1 p2 = {!mkQ' x!}
+
+    case2 : deleteDAs (¬ B) (Δ ¸ C ¸ Π) ≡
+      (deleteDAs (¬ B) Δ ¸ C ¸ deleteDAs (¬ B) Π) →
+      deleteDAs (¬ B) (Δ ¸ D ¸ C ¸ Π) ≡
+      (deleteDAs (¬ B) Δ ¸ deleteDAs (¬ B) (C ¸ Π)) →
+      Γ ¸ B ==> ((Δ ¸ D ¸ C ¸ Π) ⁻)
+    case2 p1 p2 = {!mkQ' x!}
+
+    case3 : deleteDAs (¬ B) ((Δ ¸ D) ¸ C ¸ Π) ≡
+      (deleteDAs (¬ B) (Δ ¸ D) ¸ deleteDAs (¬ B) Π) →
+      deleteDAs (¬ B) (Δ ¸ D ¸ C ¸ Π) ≡
+      (deleteDAs (¬ B) Δ ¸ D ¸ deleteDAs (¬ B) (C ¸ Π)) →
+      Γ ¸ B ==> ((Δ ¸ D ¸ C ¸ Π) ⁻)
+    case3 p1 p2 = {!mkQ' x!}
+
+    case4 : deleteDAs (¬ B) ((Δ ¸ D) ¸ C ¸ Π) ≡
+      (deleteDAs (¬ B) (Δ ¸ D) ¸ C ¸ deleteDAs (¬ B) Π) →
+      deleteDAs (¬ B) (Δ ¸ D ¸ C ¸ Π) ≡
+      (deleteDAs (¬ B) Δ ¸ D ¸ deleteDAs (¬ B) (C ¸ Π)) →
+      Γ ¸ B ==> ((Δ ¸ D ¸ C ¸ Π) ⁻)
+    case4 p1 p2 = {!exchangeᵣ (Γ ¸ B) Π Δ C D (mkQ' x)!}
+--  mkQ' (exchangeᵣ Γ Π Δ C D x) = deleteDAcase' {X = λ x → Γ ¸ B ==> x} {Γ = Δ} {Δ = (C ¸ Π)} {A = D} {B = (¬ B)} {!congF {X = }!} {!!}
+
   mkQ' (contractionₗ Γ Δ C x) = {!!}
   mkQ' (contractionᵣ Γ Δ C x) = {!!}
   mkQ' (weakeningₗ Γ Δ C x) = {!!}
