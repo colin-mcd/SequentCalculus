@@ -63,6 +63,8 @@ maxOf = foldr max 0
 
 maxCutDepthS :: ProofS -> Int
 maxCutDepthS = foldProofSS $ \ rl cs ss ps rs -> if rl == RuleCut then proofDepthS (ProofS rl cs ss ps) else maxOf rs
+maxCutDepth :: Proof -> Int
+maxCutDepth = maxCutDepthS . simplify
 
 foldN :: (Int -> x -> x) -> x -> Int -> x
 foldN s z 0 = z
@@ -87,30 +89,41 @@ typeof (ImpL gamma delta a b x1 x2) = (([Imp a b] ++ gamma), (delta))
 typeof (ImpR gamma delta a b x) = ((gamma), (delta ++ [Imp a b]))
 
 
--- gamma -> delta -> pi -> lambda -> a ->
+-- gamma -> delta -> pi -> a ->
 --   (gamma, delta, a, pi ==> lambda) -> (gamma, a, delta, pi ==> lambda)
-exchangesAnteL :: Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
-exchangesAnteL gamma [] pi l a x = x
-exchangesAnteL gamma (b : delta) pi lambda a x =
-  ExchangeL gamma (delta ++ pi) lambda b a (exchangesAnteL gamma delta pi lambda a x)
+exchangesAnteL :: Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
+exchangesAnteL gamma delta pi a x = h delta where
+  (_, lambda) = typeof x
+  h [] = x
+  h (b : delta) = ExchangeL gamma (delta ++ pi) lambda b a (h delta)
+--exchangesAnteL gamma [] pi lambda a x = x
+--exchangesAnteL gamma (b : delta) pi a x =
+--  ExchangeL gamma (delta ++ pi) lambda b a (exchangesAnteL gamma delta pi lambda a x)
 
--- gamma -> delta -> pi -> lambda -> a ->
+-- gamma -> delta -> pi -> a ->
 --   (gamma, a, delta, pi ==> lambda) -> (gamma, delta, a, pi ==> lambda)
-exchangesAnteR :: Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
-exchangesAnteR gamma [] pi lambda a x = x
-exchangesAnteR gamma (b : delta) pi lambda a x =
-  exchangesAnteR (gamma ++ [b]) delta pi lambda a (ExchangeL gamma (delta ++ pi) lambda a b x)
+exchangesAnteR :: Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
+exchangesAnteR gamma delta pi a x = h gamma delta x where
+  (_, lambda) = typeof x
+  h gamma [] x = x
+  h gamma (b : delta) x =
+    h (gamma ++ [b]) delta (ExchangeL gamma (delta ++ pi) lambda a b x)
+--exchangesAnteR gamma [] pi a x = x
+--exchangesAnteR gamma (b : delta) pi a x =
+--  exchangesAnteR (gamma ++ [b]) delta pi lambda a (ExchangeL gamma (delta ++ pi) lambda a b x)
 
--- gamma -> delta -> pi -> lambda -> a ->
+-- delta -> pi -> lambda -> a ->
 --   (gamma ==> delta, pi, a, lambda) -> (gamma ==> delta, a, pi, lambda)
-exchangesSuccL :: Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
-exchangesSuccL gamma delta [] lambda a x = x
-exchangesSuccL gamma delta (b : pi) lambda a x =
-  -- x :: (gamma => delta, b, pi, a, lambda)
-  -- want (gamma => delta, a, b, pi, lambda)
-  ExchangeR gamma delta (pi ++ lambda) b a (exchangesSuccL gamma delta pi lambda a x)
+exchangesSuccL :: Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
+exchangesSuccL delta pi lambda a x = h pi where
+  (gamma, _) = typeof x
+  h [] = x
+  h (b : pi) =
+    -- x :: (gamma => delta, b, pi, a, lambda)
+    -- want (gamma => delta, a, b, pi, lambda)
+    ExchangeR gamma delta (pi ++ lambda) b a (h pi)
   
--- gamma -> delta -> pi -> lambda -> a ->
+-- delta -> pi -> lambda -> a ->
 --   (gamma ==> delta, a, pi, lambda) -> (gamma ==> delta, pi, a, lambda)
 exchangesSuccR :: Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
 exchangesSuccR delta pi lambda a x = h delta pi x where
@@ -120,17 +133,12 @@ exchangesSuccR delta pi lambda a x = h delta pi x where
     -- x :: (gamma ==> delta, a, b, pi, lambda)
     -- want (gamma ==> delta, b, pi, a, lambda)
     h (delta ++ [b]) pi (ExchangeR gamma delta (pi ++ lambda) a b x)
-{-exchangesSuccR gamma delta [] lambda a x = x
-exchangesSuccR gamma delta (b : pi) lambda a x =
-  -- x :: (gamma ==> delta, a, b, pi, lambda)
-  -- want (gamma ==> delta, b, pi, a, lambda)
-  exchangesSuccR gamma (delta ++ [b]) pi lambda a (ExchangeR gamma delta (pi ++ lambda) a b x)-}
 
 -- a -> (delta ==> pi) -> (delta, a ==> pi)
 weakeningAnteR :: Sentence -> Proof -> Proof
 weakeningAnteR a x =
   let (delta, pi) = typeof x in
-    exchangesAnteR [] delta [] pi a (WeakeningL delta pi a x)
+    exchangesAnteR [] delta [] a (WeakeningL delta pi a x)
 
 -- a -> (delta ==> pi) -> (delta ==> a, pi)
 weakeningSuccL :: Sentence -> Proof -> Proof
@@ -138,7 +146,7 @@ weakeningSuccL a x =
   let (delta, pi) = typeof x
       x1 = x -- delta ==> pi
       x2 = WeakeningR delta pi a x1 -- delta ==> pi, a
-      x3 = exchangesSuccL delta [] pi [] a x2 -- delta ==> a, pi
+      x3 = exchangesSuccL [] pi [] a x2 -- delta ==> a, pi
   in
     x3
 
@@ -203,7 +211,7 @@ weakeningLto delta x = h [] delta' delta x where
       -- want: gamma ==> pi, d, delta
       -- x: gamma ==> pi, d', delta'
       let x1 = WeakeningR gamma (pi ++ (d' : delta')) d x -- gamma ==> pi, d', delta', d
-          x2 = exchangesSuccL gamma pi (d' : delta') [] d x1 -- gamma ==> pi, d, d', delta'
+          x2 = exchangesSuccL pi (d' : delta') [] d x1 -- gamma ==> pi, d, d', delta'
           x3 = h (pi ++ [d]) (d' : delta') delta x2 -- gamma ==> pi, d, delta
       in
         x3
@@ -227,7 +235,7 @@ weakeningRto gamma x = h [] gamma' gamma x where
       -- x: pi, g', gamma' ==> delta
       let x1 = h pi (g' : gamma') gamma x -- pi, gamma ==> delta
           x2 = WeakeningL (pi ++ gamma) delta g x1 -- g, pi, gamma ==> delta
-          x3 = exchangesAnteR [] pi gamma delta g x2 -- pi, g, gamma ==> delta
+          x3 = exchangesAnteR [] pi gamma g x2 -- pi, g, gamma ==> delta
       in
         x3
 
