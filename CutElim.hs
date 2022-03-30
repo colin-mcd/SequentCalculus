@@ -147,7 +147,7 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (ConjR gamma delta a b x y) =
       else if c == b then
         weakeningR' (succL ++ (delta -* c)) succR (Conj a b) y1 -- anteL, gamma, anteR ==> succL, (delta -* c), (Conj a b), succR
       else
-        let z1 = conjR' (succL ++ (delta -* c)) succR a b x1 x2 -- anteL, gamma, anteR ==> succL, (delta -* c), (Conj a b), succR
+        let z1 = conjR' (succL ++ (delta -* c)) succR a b x1 y1 -- anteL, gamma, anteR ==> succL, (delta -* c), (Conj a b), succR
 --            x2 = exchangesSuccR (succL ++ (delta -* c)) succR [] a x1 -- anteL, gamma, anteR ==> succL, (delta -* c), succR, a
 --            y2 = exchangesSuccR (succL ++ (delta -* c)) succR [] b y1 -- anteL, gamma, anteR ==> succL, (delta -* c), succR, b
 --            z1 = conjR x2 y2 -- anteL, gamma, anteR ==> succL, (delta -* c), succR, (Conj a b)
@@ -325,7 +325,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (NegL gamma delta a x) =
     -- f : (anteL, (gamma -* c), anteR ==> succL, delta, a, succR) -> (anteL, (gamma -* c), anteR ==> succL, delta, succR)
     f [delPatchL f c ws x] (NegL gamma delta a x)
   else
-    let x1 = delPathL f c ws x -- anteL, (gamma -* c), anteR ==> succL, delta, a, succR
+    let x1 = delPatchL f c ws x -- anteL, (gamma -* c), anteR ==> succL, delta, a, succR
         x2 = negL' anteL ((gamma -* c) ++ anteR) (succL ++ delta) succR a x1 -- anteL, (Neg a), (gamma -* c), anteR ==> succL, delta, succR
 --        x2 = exchangesSuccR (succL ++ delta) succR [] a x1 -- anteL, (gamma -* c), anteR ==> succL, delta, succR, a
 --        x3 = negL x2 -- (Neg a), anteL, (gamma -* c), anteR ==> succL, delta, succR
@@ -347,9 +347,10 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (ConjL gamma delta a b x) =
   -- x: a, b, gamma ==> delta
   -- want: anteL, (Conj a b -* c), (gamma -* c), anteR ==> succL, delta, succR
   if c == Conj a b then
+    -- f: (anteL, (a -* c), (b -* c), (gamma -* c), anteR ==> succL, delta, succR) -> (anteL, (gamma -* c), anteR ==> succL, delta, succR)
     f [delPatchL f c ws x] (ConjL gamma delta a b x)
   else
-    let x1 = delpatchL f c ws x -- anteL, (a -* c), (b -* c), (gamma -* c), anteR ==> succL, delta, succR
+    let x1 = delPatchL f c ws x -- anteL, (a -* c), (b -* c), (gamma -* c), anteR ==> succL, delta, succR
     in
       if c == a && c == b then
         weakeningL' anteL ((gamma -* c) ++ anteR) (Conj a b) x1 -- anteL, (Conj a b), (gamma -* c), anteR ==> succL, delta, succR
@@ -403,7 +404,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (ImpL gamma delta a b x y) =
     else if c == b then
       weakeningLto (anteL ++ Imp a b : (gamma -* c) ++ anteR) y1
     else
-      impL' anteL ((gamma -* c) ++ ante) (succL ++ delta) succR a b x1 y1 -- anteL, (Imp a b), (gamma -* c), anteR ==> succL, delta, succR
+      impL' anteL ((gamma -* c) ++ anteR) (succL ++ delta) succR a b x1 y1 -- anteL, (Imp a b), (gamma -* c), anteR ==> succL, delta, succR
 delPatchL f c ws@(anteL, anteR, succL, succR) (ImpR gamma delta a b x) =
   -- x: a, gamma ==> delta, b
   -- want: anteL, (gamma -* c), anteR ==> succL, delta, (Imp a b), succR
@@ -496,9 +497,16 @@ cutReduce (Conj b c) q r =
       -- y: gamma ==> (delta -* Conj b c), c, b
       -- want: gamma ==> (delta -* Conj b c), b
       contractionR x
-    
+
     fr :: [Proof] -> Proof -> Proof
-    fr = error "TODO"
+    fr [x] (ConjL gamma delta _ _ _) =
+      -- x: b, c, b, c, (gamma -* Conj b c) ==> delta
+      -- want: b, c, (gamma -* Conj b c) ==> delta
+      let x1 = exchangesAnteL [b] [c] (c : (gamma -* Conj b c)) b x -- b, b, c, c, (gamma -* Conj b c) ==> delta
+          x2 = contractionL x1 -- b, c, c, (gamma -* Conj b c) ==> delta
+          x3 = contractionL' [b] (gamma -* Conj b c) c x2 -- b, c, (gamma -* Conj b c) ==> delta
+      in
+        x3
 
 cutReduce (Disj b c) q r =
   -- q: gamma ==> delta, (Disj b c)
