@@ -132,6 +132,29 @@ contractionR x =
   in
     ContractionR gamma delta a x
 
+-- gamma -> delta -> a -> (gamma, a, a, delta ==> pi) -> (gamma, a, delta ==> pi)
+contractionL' :: Cedent -> Cedent -> Sentence -> Proof -> Proof
+contractionL' gamma delta a x =
+  let (_, pi) = typeof x
+      x1 = exchangesAnteL [] gamma (a : delta) a x -- a, gamma, a, delta ==> pi
+      x2 = exchangesAnteL [a] gamma delta a x -- a, a, gamma, delta ==> pi
+      x3 = contractionL x2 -- a, gamma, delta ==> pi
+      x4 = exchangesAnteR [] gamma delta a x3 -- gamma, a, delta ==> pi
+  in
+    x4
+
+-- delta -> pi -> a -> (gamma ==> delta, a, a, pi) -> (gamma ==> delta, a, pi)
+contractionR' :: Cedent -> Cedent -> Sentence -> Proof -> Proof
+contractionR' delta pi a x =
+  let (gamma, _) = typeof x
+      x1 = exchangesSuccR (delta ++ [a]) pi [] a x -- gamma ==> delta, a, pi, a
+      x2 = exchangesSuccR delta pi [a] a x1 -- gamma ==> delta, pi, a, a
+      x3 = contractionR x2 -- gamma ==> delta, pi, a
+      x4 = exchangesSuccL delta pi [] a x3 -- gamma ==> delta, a, pi
+  in
+    x4
+
+
 -- a -> (gamma ==> delta) -> (a, gamma ==> delta)
 weakeningL :: Sentence -> Proof -> Proof
 weakeningL a x =
@@ -143,6 +166,24 @@ weakeningR :: Sentence -> Proof -> Proof
 weakeningR a x =
   let (gamma, delta) = typeof x in
     WeakeningR gamma delta a x
+
+-- gamma -> delta -> a -> (gamma, delta ==> pi) -> (gamma, a, delta ==>> pi)
+weakeningL' :: Cedent -> Cedent -> Sentence -> Proof -> Proof
+weakeningL' gamma delta a x =
+  let (_, pi) = typeof x
+      x1 = weakeningL a x -- a, gamma, delta ==> pi
+      x2 = exchangesAnteR [] gamma delta a x1 -- gamma, a, delta ==> pi
+  in
+    x2
+
+-- delta -> pi -> a -> (gamma ==> delta, pi) -> (gamma ==> delta, a, pi)
+weakeningR' :: Cedent -> Cedent -> Sentence -> Proof -> Proof
+weakeningR' delta pi a x =
+  let (gamma, _) = typeof x
+      x1 = weakeningR a x -- gamma ==> delta, pi, a
+      x2 = exchangesSuccL delta pi [] a x1 -- gamma ==> delta, a, pi
+  in
+    x2
 
 -- (gamma ==> delta, a) -> (Neg a, gamma ==> delta)
 negL :: Proof -> Proof
@@ -156,6 +197,24 @@ negR :: Proof -> Proof
 negR x =
   let (a : gamma, delta) = typeof x in
     NegR gamma delta a x
+
+-- gamma -> delta -> pi -> lambda -> a -> (gamma, delta ==> pi, a, lambda) -> (gamma, Neg a, delta ==> pi, lambda)
+negL' :: Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
+negL' gamma delta pi lambda a x =
+  let x1 = exchangesSuccR pi lambda [] a x -- gamma, delta ==> pi, lambda, a
+      x2 = negL x1 -- Neg a, gamma, delta ==> pi, lambda
+      x3 = exchangesAnteR [] gamma delta (Neg a) x2 -- gamma, Neg a, delta ==> pi, lambda
+  in
+    x3
+
+-- gamma -> delta -> pi -> lambda -> a -> (gamma, a, delta ==> pi, lambda) -> (gamma, delta ==> pi, Neg a, lambda)
+negR' :: Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
+negR' gamma delta pi lambda a x =
+  let x1 = exchangesAnteL [] gamma delta a x -- a, gamma, delta ==> pi, lambda
+      x2 = negR x1 -- gamma, delta ==> pi, lambda, Neg a
+      x3 = exchangesSuccL pi lambda [] (Neg a) x2 -- gamma, delta ==> pi, Neg a, lambda
+  in
+    x3
 
 -- (a, b, gamma ==> delta) -> (Conj a b, gamma ==> delta)
 conjL :: Proof -> Proof
@@ -173,6 +232,26 @@ conjR x y =
   in
     ConjR gammax deltax a b x y
 
+-- gamma -> delta -> a -> b -> (gamma, a, b, delta ==> pi) -> (gamma, Conj a b, delta ==> pi)
+conjL' :: Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
+conjL' gamma delta a b x =
+  let x1 = exchangesAnteL [] gamma (b : delta) a x -- a, gamma, b, delta ==> pi
+      x2 = exchangesAnteL [a] gamma delta b x1 -- a, b, gamma, delta ==> pi
+      x3 = conjL x2 -- Conj a b, gamma, delta ==> pi
+      x4 = exchangesAnteR [] gamma delta (Conj a b) x3 -- gamma, Conj a b, delta ==> pi
+  in
+    x4
+
+-- delta -> pi -> a -> b -> (gamma ==> delta, a, pi) -> (gamma ==> delta, b, pi) -> (gamma ==> delta, Conj a b, pi)
+conjR' :: Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof -> Proof
+conjR' delta pi a b x y =
+  let x1 = exchangesSuccR delta pi [] a x -- gamma ==> delta, pi, a
+      y1 = exchangesSuccR delta pi [] b y -- gamma ==> delta, pi, b
+      z1 = conjR x1 y1 -- gamma ==> delta, pi, Conj a b
+      z2 = exchangesSuccL delta pi [] (Conj a b) z1
+  in
+    z2
+
 --(a, gamma ==> delta) -> (b, gamma ==> delta) -> (Disj a b, gamma ==> delta)
 disjL :: Proof -> Proof -> Proof
 disjL x y =
@@ -187,6 +266,26 @@ disjR x =
   let (gamma, delta_a_b) = typeof x
       (delta, [a, b]) = splitAt (length delta_a_b - 2) delta_a_b in
     DisjR gamma delta a b x
+
+-- gamma -> delta -> a -> b -> (gamma, a, delta ==> pi) -> (gamma, b, delta ==> pi) -> (gamma, Disj a b, delta ==> pi)
+disjL' :: Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof -> Proof
+disjL' gamma delta a b x y =
+  let x1 = exchangesAnteL [] gamma delta a x -- a, gamma, delta ==> pi
+      y1 = exchangesAnteL [] gamma delta a y -- b, gamma, delta ==> pi
+      z1 = disjL x1 y1 -- Conj a b, gamma, delta ==> pi
+      z2 = exchangesAnteR [] gamma delta (Conj a b) z1 -- gamma, Conj a b, delta ==> pi
+  in
+    z2
+
+-- delta -> pi -> a -> b -> (gamma ==> delta, a, b, pi) -> (gamma ==> delta, Disj a b, pi)
+disjR' :: Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
+disjR' delta pi a b x =
+  let x1 = exchangesSuccR (delta ++ [a]) pi [] b x -- gamma ==> delta, a, pi, b
+      x2 = exchangesSuccR delta pi [b] a x1 -- gamma ==> delta, pi, a, b
+      x3 = disjR x2 -- gamma ==> delta, pi, Disja b
+      x4 = exchangesSuccL delta pi [] (Disj a b) x3 -- gamma ==> delta, Disj a b, pi
+  in
+    x4
 
 -- (gamma ==> delta, a) -> (b, gamma ==> delta) -> (Imp a b, gamma ==> delta)
 impL :: Proof -> Proof -> Proof
@@ -203,6 +302,25 @@ impR x =
       (delta, [b]) = splitAt (length delta_b - 1) delta_b in
     ImpR gamma delta a b x
 
+-- gamma -> delta -> pi -> lambda -> a -> b -> (gamma, delta ==> pi, a, lambda) -> (gamma, b, delta ==> pi, lambda) -> (gamma, Imp a b, delta ==> pi, lambda)
+impL' :: Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof -> Proof
+impL' gamma delta pi lambda a b x y =
+  let x1 = exchangesSuccR pi lambda [] a x -- gamma, delta ==> pi, lambda, a
+      y1 = exchangesSuccL [] gamma delta b y -- b, gamma, delta ==> pi, lambda
+      z1 = impL x1 y1 -- Imp a b, gamma, delta ==> pi, lambda
+      z2 = exchangesAnteR [] gamma delta (Imp a b) z1 -- gamma, Imp a b, delta ==> pi, lambda
+  in
+    z2
+
+-- gamma -> delta -> pi -> lambda -> a -> b -> (gamma, a, delta ==> pi, b, lambda) -> (gamma, delta ==> pi, Imp a b, lambda)
+impR' :: Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
+impR' gamma delta pi lambda a b x =
+  let x1 = exchangesAnteL [] gamma delta a x -- a, gamma, delta ==> pi, b, lambda
+      x2 = exchangesSuccR pi lambda [] b x1 -- a, gamma, delta ==> pi, lambda, b
+      x3 = impR x2 -- gamma, delta ==> pi, lambda, Imp a b
+      x4 = exchangesSuccL pi lambda [] (Imp a b) x3 -- gamma, delta ==> pi, Imp a b, lambda
+  in
+    x4
 
 -- gamma -> delta -> pi -> a ->
 --   (gamma, delta, a, pi ==> lambda) -> (gamma, a, delta, pi ==> lambda)
