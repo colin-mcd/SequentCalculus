@@ -322,6 +322,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (NegL gamma delta a x) =
   -- x: gamma ==> delta, a
   -- want: anteL, (Neg a -* c), (gamma -* c), anteR ==> succL, delta, succR
   if c == Neg a then
+    -- f : (anteL, (gamma -* c), anteR ==> succL, delta, a, succR) -> (anteL, (gamma -* c), anteR ==> succL, delta, succR)
     f [delPatchL f c ws x] (NegL gamma delta a x)
   else
     let x1 = delPathL f c ws x -- anteL, (gamma -* c), anteR ==> succL, delta, a, succR
@@ -454,10 +455,15 @@ cutReduce (Neg b) q r =
           x4 = exchangesAnteR [] gamma [] b x3 -- gamma, b ==> (delta -* Neg b)
       in
         x4
-    
+
     fr :: [Proof] -> Proof -> Proof
     fr [x1] (NegR gamma delta _ _) =
-      error "TODO"
+      -- x1: (gamma -* Neg b) ==> b, delta, b
+      -- want: (gamma -* Neg b) ==> b, delta
+      let x2 = exchangesSuccL [b] delta [] b x1 -- (gamma -* Neg b) ==> b, b, delta
+          x3 = contractionR' [] delta b x2 -- (gamma -* Neg b) ==> b, delta
+      in
+        x3
 
 cutReduce (Conj b c) q r =
   -- q: gamma ==> delta, (Conj b c)
