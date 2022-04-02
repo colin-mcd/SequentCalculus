@@ -49,6 +49,9 @@ propRules = [RuleNegL, RuleNegR,
              RuleDisjL, RuleDisjR,
              RuleImpL, RuleImpR]
 
+binaryRules :: [RuleLabel]
+binaryRules = [RuleCut, RuleConjR, RuleDisjL, RuleImpL]
+
 
 isCutFreeS :: ProofS -> Bool
 isCutFreeS = foldProofS $ \ rl cs ss rs -> rl == RuleCut || or rs
@@ -545,6 +548,13 @@ proofValid (ImpL gamma delta a b x y) =
   typeof x == (gamma, delta ++ [a]) && typeof y == (b : gamma, delta)
 proofValid (ImpR gamma delta a b x) =
   proofValid x && typeof x == (gamma, delta)
+
+-- Concats a list of lists, adding a delimiter
+-- Example: delimitWith ", " ["item 1", "item 2", "item 3"] = "item 1, item 2, item 3"
+delimitWith :: [a] -> [[a]] -> [a]
+delimitWith del [] = []
+delimitWith del [as] = as
+delimitWith del (h : t) = h ++ del ++ delimitWith del t
 
 --------------------------------------------------------------------------------
 
