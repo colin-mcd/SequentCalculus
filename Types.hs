@@ -1,6 +1,6 @@
 module Types where
 
-type Atom = Int
+type Atom = String
 
 data Sentence =
     Atom Atom
@@ -8,7 +8,7 @@ data Sentence =
   | Conj Sentence Sentence
   | Disj Sentence Sentence
   | Imp Sentence Sentence
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
 
 {-instance Eq Sentence where
   Atom v == Atom u = v == u
@@ -99,13 +99,13 @@ data Proof =
   --  (A ¸ Γ ==> Δ ¸ B) →
   --  (Γ ==> Δ ¸ A ⊃ B)
   | ImpR Cedent Cedent Sentence Sentence Proof
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
 
 data RuleLabel = RuleLeaf | RuleCut | RuleExchangeL | RuleExchangeR | RuleContractionL | RuleContractionR | RuleWeakeningL | RuleWeakeningR | RuleNegL | RuleNegR | RuleConjL | RuleConjR | RuleDisjL | RuleDisjR | RuleImpL | RuleImpR
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
 
 data ProofS = ProofS RuleLabel [Cedent] [Sentence] [ProofS]
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
 
 foldProofS :: (RuleLabel -> [Cedent] -> [Sentence] -> [a] -> a) -> ProofS -> a
 foldProofS f (ProofS rl cs ss ps) = f rl cs ss (foldProofS f <$> ps)
