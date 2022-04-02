@@ -1,9 +1,11 @@
 module Main where
 import Types
 import Helpers
-import Show
+import Show()
 import CutElim
 
+ensureValid :: Proof -> x -> x
+ensureValid = maybe id (\ x -> error ("Invalid inference:\n" ++ show x)) . proofValid
 
 main :: IO ()
 main =
@@ -12,8 +14,8 @@ main =
       x = cut (weakeningR c l) (weakeningL c l)
       xcf = cutElim x
   in
-    ensureValid x $
-    ensureValid xcf $
+--    ensureValid x $
+--    ensureValid xcf $
     putStrLn (show x) >>
     putStrLn (show xcf)
 

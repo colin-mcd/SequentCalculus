@@ -424,8 +424,8 @@ weakenings (anteL, anteR, succL, succR) x =
 
 
 -- delta -> (gamma ==> delta') -> (gamma ==> delta)  (assumes delta' \subset delta)
-weakeningLto :: Cedent -> Proof -> Proof
-weakeningLto delta x = h [] delta' delta x where
+weakeningRto :: Cedent -> Proof -> Proof
+weakeningRto delta x = h [] delta' delta x where
   (gamma, delta') = typeof x
   -- pi -> delta' -> delta -> (gamma ==> pi, delta') -> (gamma ==> pi, delta)
   h :: Cedent -> Cedent -> Cedent -> Proof -> Proof
@@ -447,8 +447,8 @@ weakeningLto delta x = h [] delta' delta x where
         x3
 
 -- gamma -> (gamma' ==> delta) -> (gamma ==> delta)  (assumes gamma' \subset gamma)
-weakeningRto :: Cedent -> Proof -> Proof
-weakeningRto gamma x = h [] gamma' gamma x where
+weakeningLto :: Cedent -> Proof -> Proof
+weakeningLto gamma x = h [] gamma' gamma x where
   (gamma', delta) = typeof x
   -- pi -> gamma' -> gamma -> (pi, gamma' ==> delta) -> (pi, gamma ==> delta)
   h :: Cedent -> Cedent -> Cedent -> Proof -> Proof
@@ -512,42 +512,45 @@ contractDoubleR delta x = h [] delta x where
     in
       x5
 
-proofValid :: Proof -> Bool
-proofValid (Leaf a) = True
-proofValid (Cut gamma delta a x y) =
-  proofValid x && proofValid y &&
-  typeof x == (gamma, delta ++ [a]) && typeof y == (a : gamma, delta)
-proofValid (ExchangeL gamma delta pi a b x) =
-  proofValid x && typeof x == (gamma ++ a : b : delta, pi)
-proofValid (ExchangeR gamma delta pi a b x) =
-  proofValid x && typeof x == (gamma, delta ++ a : b : pi)
-proofValid (ContractionL gamma delta a x) =
-  proofValid x && typeof x == (a : a : gamma, delta)
-proofValid (ContractionR gamma delta a x) =
-  proofValid x && typeof x == (gamma, delta ++ [a, a])
-proofValid (WeakeningL gamma delta a x) =
-  proofValid x && typeof x == (gamma, delta)
-proofValid (WeakeningR gamma delta a x) =
-  proofValid x && typeof x == (gamma, delta)
-proofValid (NegL gamma delta a x) =
-  proofValid x && typeof x == (gamma, delta ++ [a])
-proofValid (NegR gamma delta a x) =
-  proofValid x && typeof x == (a : gamma, delta)
-proofValid (ConjL gamma delta a b x) =
-  proofValid x && typeof x == (a : b : gamma, delta)
-proofValid (ConjR gamma delta a b x y) =
-  proofValid x && proofValid y &&
-  typeof x == (gamma, delta ++ [a]) && typeof y == (gamma, delta ++ [b])
-proofValid (DisjL gamma delta a b x y) =
-  proofValid x && proofValid y &&
-  typeof x == (a : gamma, delta) && typeof y == (b : gamma, delta)
-proofValid (DisjR gamma delta a b x) =
-  proofValid x && typeof x == (gamma, delta)
-proofValid (ImpL gamma delta a b x y) =
-  proofValid x && proofValid y &&
-  typeof x == (gamma, delta ++ [a]) && typeof y == (b : gamma, delta)
-proofValid (ImpR gamma delta a b x) =
-  proofValid x && typeof x == (gamma, delta)
+checkIs :: Proof -> Proof -> (Cedent, Cedent) -> Maybe Proof
+checkIs p x tp = if typeof x == tp then Nothing else Just p
+
+proofValid :: Proof -> Maybe Proof -- Returns Just x if x is an invalid inference
+proofValid (Leaf a) = Nothing
+proofValid p@(Cut gamma delta a x y) =
+  proofValid x |?| proofValid y |?|
+  checkIs p x (gamma, delta ++ [a]) |?| checkIs p y (a : gamma, delta)
+proofValid p@(ExchangeL gamma delta pi a b x) =
+  proofValid x |?| checkIs p x (gamma ++ a : b : delta, pi)
+proofValid p@(ExchangeR gamma delta pi a b x) =
+  proofValid x |?| checkIs p x (gamma, delta ++ a : b : pi)
+proofValid p@(ContractionL gamma delta a x) =
+  proofValid x |?| checkIs p x (a : a : gamma, delta)
+proofValid p@(ContractionR gamma delta a x) =
+  proofValid x |?| checkIs p x (gamma, delta ++ [a, a])
+proofValid p@(WeakeningL gamma delta a x) =
+  proofValid x |?| checkIs p x (gamma, delta)
+proofValid p@(WeakeningR gamma delta a x) =
+  proofValid x |?| checkIs p x (gamma, delta)
+proofValid p@(NegL gamma delta a x) =
+  proofValid x |?| checkIs p x (gamma, delta ++ [a])
+proofValid p@(NegR gamma delta a x) =
+  proofValid x |?| checkIs p x (a : gamma, delta)
+proofValid p@(ConjL gamma delta a b x) =
+  proofValid x |?| checkIs p x (a : b : gamma, delta)
+proofValid p@(ConjR gamma delta a b x y) =
+  proofValid x |?| proofValid y |?|
+  checkIs p x (gamma, delta ++ [a]) |?| checkIs p y (gamma, delta ++ [b])
+proofValid p@(DisjL gamma delta a b x y) =
+  proofValid x |?| proofValid y |?|
+  checkIs p x (a : gamma, delta) |?| checkIs p y (b : gamma, delta)
+proofValid p@(DisjR gamma delta a b x) =
+  proofValid x |?| checkIs p x (gamma, delta)
+proofValid p@(ImpL gamma delta a b x y) =
+  proofValid x |?| proofValid y |?|
+  checkIs p x (gamma, delta ++ [a]) |?| checkIs p y (b : gamma, delta)
+proofValid p@(ImpR gamma delta a b x) =
+  proofValid x |?| checkIs p x (gamma, delta)
 
 -- Concats a list of lists, adding a delimiter
 -- Example: delimitWith ", " ["item 1", "item 2", "item 3"] = "item 1, item 2, item 3"
@@ -555,6 +558,11 @@ delimitWith :: [a] -> [[a]] -> [a]
 delimitWith del [] = []
 delimitWith del [as] = as
 delimitWith del (h : t) = h ++ del ++ delimitWith del t
+
+infixr 2 |?|
+(|?|) :: Maybe a -> Maybe a -> Maybe a
+Nothing |?| m_else = m_else
+Just a |?| m_else = Just a
 
 --------------------------------------------------------------------------------
 

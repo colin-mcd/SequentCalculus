@@ -587,7 +587,7 @@ cutReduceS :: Sentence -> ProofS -> ProofS -> ProofS
 cutReduceS s p1 p2 = simplify (cutReduce s (expand p1) (expand p2))
 
 
--- Given a proof of greatest cut depth d+1, lower the max cut to depth d
+-- Given a proof of greatest cut depth d, lower the max cut to depth d-1
 cutLower :: Int -> Proof -> Proof
 cutLower d = expand . cutLowerS d . simplify
 
@@ -595,7 +595,7 @@ cutLowerS :: Int -> ProofS -> ProofS
 cutLowerS d =
   foldProofSS $ \ rl cs ss ps rs ->
   -- if rl == RuleCut then ss = [a] for some a
-  if rl == RuleCut && succ d == dp (head ss) then
+  if rl == RuleCut && d == dp (head ss) then
     let [a] = ss
         [x1, x2] = rs in
       cutReduceS a x1 x2
@@ -606,8 +606,8 @@ cutLowerS d =
 cutElim :: Proof -> Proof
 cutElim p = h p (maxCutDepth p) where
   h :: Proof -> Int -> Proof
-  h p 0 = p
-  h p d1 = let d = pred d1 in h (cutLower d p) d
+  h p 0 = cutLower 0 p
+  h p d = h (cutLower d p) (pred d)
 
 cutElimS :: ProofS -> ProofS
 cutElimS = simplify . cutElim . expand
