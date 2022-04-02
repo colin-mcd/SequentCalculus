@@ -509,11 +509,48 @@ contractDoubleR delta x = h [] delta x where
     in
       x5
 
+proofValid :: Proof -> Bool
+proofValid (Leaf a) = True
+proofValid (Cut gamma delta a x y) =
+  proofValid x && proofValid y &&
+  typeof x == (gamma, delta ++ [a]) && typeof y == (a : gamma, delta)
+proofValid (ExchangeL gamma delta pi a b x) =
+  proofValid x && typeof x == (gamma ++ a : b : delta, pi)
+proofValid (ExchangeR gamma delta pi a b x) =
+  proofValid x && typeof x == (gamma, delta ++ a : b : pi)
+proofValid (ContractionL gamma delta a x) =
+  proofValid x && typeof x == (a : a : gamma, delta)
+proofValid (ContractionR gamma delta a x) =
+  proofValid x && typeof x == (gamma, delta ++ [a, a])
+proofValid (WeakeningL gamma delta a x) =
+  proofValid x && typeof x == (gamma, delta)
+proofValid (WeakeningR gamma delta a x) =
+  proofValid x && typeof x == (gamma, delta)
+proofValid (NegL gamma delta a x) =
+  proofValid x && typeof x == (gamma, delta ++ [a])
+proofValid (NegR gamma delta a x) =
+  proofValid x && typeof x == (a : gamma, delta)
+proofValid (ConjL gamma delta a b x) =
+  proofValid x && typeof x == (a : b : gamma, delta)
+proofValid (ConjR gamma delta a b x y) =
+  proofValid x && proofValid y &&
+  typeof x == (gamma, delta ++ [a]) && typeof y == (gamma, delta ++ [b])
+proofValid (DisjL gamma delta a b x y) =
+  proofValid x && proofValid y &&
+  typeof x == (a : gamma, delta) && typeof y == (b : gamma, delta)
+proofValid (DisjR gamma delta a b x) =
+  proofValid x && typeof x == (gamma, delta)
+proofValid (ImpL gamma delta a b x y) =
+  proofValid x && proofValid y &&
+  typeof x == (gamma, delta ++ [a]) && typeof y == (b : gamma, delta)
+proofValid (ImpR gamma delta a b x) =
+  proofValid x && typeof x == (gamma, delta)
+
 --------------------------------------------------------------------------------
 
 {-
 typeof (Leaf a) = error "TODO"
-typeof (Cut gamma delta a x1 x2) = error "TODO"
+typeof (Cut gamma delta a x y) = error "TODO"
 typeof (ExchangeL gamma delta pi a b x) = error "TODO"
 typeof (ExchangeR gamma delta pi a b x) = error "TODO"
 typeof (ContractionL gamma delta a x) = error "TODO"
@@ -523,9 +560,9 @@ typeof (WeakeningR gamma delta a x) = error "TODO"
 typeof (NegL gamma delta a x) = error "TODO"
 typeof (NegR gamma delta a x) = error "TODO"
 typeof (ConjL gamma delta a b x) = error "TODO"
-typeof (ConjR gamma delta a b x1 x2) = error "TODO"
-typeof (DisjL gamma delta a b x1 x2) = error "TODO"
+typeof (ConjR gamma delta a b x y) = error "TODO"
+typeof (DisjL gamma delta a b x y) = error "TODO"
 typeof (DisjR gamma delta a b x) = error "TODO"
-typeof (ImpL gamma delta a b x1 x2) = error "TODO"
+typeof (ImpL gamma delta a b x y) = error "TODO"
 typeof (ImpR gamma delta a b x) = error "TODO"
 -}
