@@ -511,10 +511,42 @@ cutReduce (Conj b c) q r =
 cutReduce (Disj b c) q r =
   -- q: gamma ==> delta, (Disj b c)
   -- r: (Disj b c), gamma ==> delta
-  error "TODO"
+  let q1 = delPatchR fq (Disj b c) ([], [], [], [b, c]) q -- gamma ==> (delta -* Disj b c), b, c
+      rb1 = delPatchL frb (Disj b c) ([b], [], [], []) r -- b, (gamma -* Disj b c) ==> delta
+      rc1 = delPatchL frc (Disj b c) ([c], [], [], []) r -- c, (gamma -* Disj b c) ==> delta
+      q2 = weakeningRto (delta ++ [b, c]) q1 -- gamma ==> delta, b, c
+      rb2 = weakeningLto (b : gamma) rb1 -- b, gamma ==> delta
+      rc2 = weakeningTo (c : gamma) (delta ++ [b]) rc1 -- c, gamma ==> delta, b
+  in
+    cut (cut q2 rc2) rb2 -- gamma ==> delta
   where
     (gamma, _) = typeof q
     (_, delta) = typeof r
+
+    fq :: [Proof] -> Proof -> Proof
+    fq [x] (DisjR gamma delta _ _ _) =
+      -- x: gamma ==> (delta -* Disj b c), b, c, b, c
+      -- want: gamma ==> (delta -* Disj b c), b, c
+      let x1 = exchangesSuccR ((delta -* Disj b c) ++ [b]) [b] [c] b -- gamma ==> (delta -* Disj b c), b, b, c, c
+          x2 = contractionR' ((delta -* Disj b c) ++ [b, b]) [] c x1 -- gamma ==> (delta -* Disj b c), b, b, c
+          x3 = contractionR' (delta -* Disj b c) [c] b x2 -- gamma ==> (delta -* Disj b c), b, c
+      in
+        x3
+
+    frb :: [Proof] -> Proof -> Proof
+    frb [x, y] (DisjL gamma delta _ _ _ _) =
+      -- x: b, b, (gamma -* Disj b c) ==> delta
+      -- y: b, c, (gamma -* Disj b c) ==> delta
+      -- want: b, (gamma -* Disj b c) ==> delta
+      contractionL x
+    
+    frc :: [Proof] -> Proof -> Proof
+    frc [x, y] (DisjL gamma delta _ _ _ _) =
+      -- x: c, b, (gamma -* Disj b c) ==> delta
+      -- y: c, c, (gamma -* Disj b c) ==> delta
+      -- want: c, (gamma -* Disj b c) ==> delta
+      contractionL y
+
 
 cutReduce (Imp b c) q r =
   -- q: gamma ==> delta, (Imp b c)
@@ -523,6 +555,15 @@ cutReduce (Imp b c) q r =
   where
     (gamma, _) = typeof q
     (_, delta) = typeof r
+    
+    fq :: [Proof] -> Proof -> Proof
+    fq = error "TODO"
+
+    frc :: [Proof] -> Proof -> Proof
+    frc = error "TODO"
+
+    frb :: [Proof] -> Proof -> Proof
+    frb = error "TODO"
 
 cutReduceS :: Sentence -> ProofS -> ProofS -> ProofS
 cutReduceS s p1 p2 = simplify (cutReduce s (expand p1) (expand p2))
@@ -538,7 +579,7 @@ cutLowerS d =
   -- if rl == RuleCut then ss = [a] for some a
   if rl == RuleCut && succ d == dp (head ss) then
     let [a] = ss
-        [x1, x2] = rs in -- TODO: = rs or = ps?
+        [x1, x2] = rs in
       cutReduceS a x1 x2
   else
     ProofS rl cs ss rs
