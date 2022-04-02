@@ -527,7 +527,7 @@ cutReduce (Disj b c) q r =
     fq [x] (DisjR gamma delta _ _ _) =
       -- x: gamma ==> (delta -* Disj b c), b, c, b, c
       -- want: gamma ==> (delta -* Disj b c), b, c
-      let x1 = exchangesSuccR ((delta -* Disj b c) ++ [b]) [b] [c] b -- gamma ==> (delta -* Disj b c), b, b, c, c
+      let x1 = exchangesSuccR ((delta -* Disj b c) ++ [b]) [b] [c] b x -- gamma ==> (delta -* Disj b c), b, b, c, c
           x2 = contractionR' ((delta -* Disj b c) ++ [b, b]) [] c x1 -- gamma ==> (delta -* Disj b c), b, b, c
           x3 = contractionR' (delta -* Disj b c) [c] b x2 -- gamma ==> (delta -* Disj b c), b, c
       in
@@ -551,19 +551,37 @@ cutReduce (Disj b c) q r =
 cutReduce (Imp b c) q r =
   -- q: gamma ==> delta, (Imp b c)
   -- r: (Imp b c), gamma ==> delta
-  error "TODO"
+  let q1 = delPatchR fq (Imp b c) ([b], [], [], [c]) q -- b, gamma ==> (delta -* Imp b c), c
+      rb1 = delPatchL frb (Imp b c) ([], [], [], [b]) r -- (gamma -* Imp b c) ==> delta, b
+      rc1 = delPatchL frc (Imp b c) ([c], [], [], []) r -- c, (gamma -* Imp b c) ==> delta
+      q2 = weakeningRto (delta ++ [c]) q1 -- b, gamma ==> delta, c
+      rb2 = weakeningRto (delta ++ [c, b]) rb1 -- gamma ==> delta, c, b
+      rc2 = weakeningLto (c : gamma) rc1 -- c, gamma ==> delta
+  in
+    cut (cut rb2 q2) rc2 -- gamma ==> delta
   where
     (gamma, _) = typeof q
     (_, delta) = typeof r
     
     fq :: [Proof] -> Proof -> Proof
-    fq = error "TODO"
-
-    frc :: [Proof] -> Proof -> Proof
-    frc = error "TODO"
+    fq [x] (ImpR gamma delta _ _ _) =
+      -- x: b, b, gamma, ==> (delta -* Imp b c), c, c
+      -- want: b, gamma ==> (delta -* Imp b c), c
+      contractionL (contractionR x)
 
     frb :: [Proof] -> Proof -> Proof
-    frb = error "TODO"
+    frb [x, y] (ImpL gamma delta _ _ _ _) =
+      -- x: (gamma -* Imp b c) ==> delta, b, b
+      -- y: c, (gamma -* Imp b c) ==> delta, b
+      -- want: (gamma -* Imp b c) ==> delta, b
+      contractionR x
+
+    frc :: [Proof] -> Proof -> Proof
+    frc [x, y] (ImpL gamma delta _ _ _ _) =
+      -- x: c, (gamma -* Imp b c) ==> delta, b
+      -- y: c, c, (gamma -* Imp b c) ==> delta
+      -- want: c, (gamma -* Imp b c) ==> delta
+      contractionL y
 
 cutReduceS :: Sentence -> ProofS -> ProofS -> ProofS
 cutReduceS s p1 p2 = simplify (cutReduce s (expand p1) (expand p2))
