@@ -466,6 +466,11 @@ weakeningRto gamma x = h [] gamma' gamma x where
       in
         x3
 
+-- gamma -> delta -> (gamma' ==> delta') -> (gamma ==> delta)  (assumes gamma' \subset gamma and delta' \subset delta)
+weakeningTo :: Cedent -> Cedent -> Proof -> Proof
+weakeningTo gamma delta x = weakeningLto gamma (weakeningRto delta x)
+
+
 -- contractDouble :: gamma -> delta -> (gamma, gamma ==> delta, delta) -> (gamma ==> delta)
 contractDouble :: Cedent -> Cedent -> Proof -> Proof
 contractDouble gamma delta x = contractDoubleL gamma (contractDoubleR delta x)
