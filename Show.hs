@@ -2,12 +2,14 @@ module Show where
 import Types
 import Helpers
 
+collapseWeakRules = True
+
 data Sequent = Sequent Cedent Cedent
 
 tpSeq :: ProofS -> Sequent
 tpSeq = uncurry Sequent . typeof . expand
 
-data ProofW = ProofW RuleLabel Sequent [ProofW]
+data ProofW = ProofW (Maybe RuleLabel) Sequent [ProofW]
 
 texLabel :: RuleLabel -> String
 texLabel RuleNegL = "\\neg_l"
@@ -43,28 +45,28 @@ proofS2W :: ProofS -> ProofW
 proofS2W x = weaken (h x) where
   weaken :: (ProofW, Maybe Sequent) -> ProofW
   weaken (p, Nothing) = p
-  weaken (p, Just tp) = ProofW RuleWeakeningL tp [p]
+  weaken (p, Just tp) = ProofW Nothing tp [p]
   
   h :: ProofS -> (ProofW, Maybe Sequent)
   h x@(ProofS rl cs ss xs)
-    | rl `elem` [] = -- weakRules =
+    | rl `elem` weakRules && collapseWeakRules =
       let [x'] = xs in -- all weak rules are unary
         (fst (h x'), Just (tpSeq x))
     | otherwise =
       let xws = map (weaken . h) xs in
-        (ProofW rl (tpSeq x) xws, Nothing)
+        (ProofW (Just rl) (tpSeq x) xws, Nothing)
 
 
 instance Show Sequent where
   show (Sequent a s) = delimitWith "," (map show a) ++ " \\implies " ++ delimitWith "," (map show s)
 
 instance Show ProofW where
-  show (ProofW RuleLeaf tp []) = "\\AxiomC{$" ++ show tp ++ "$}"
---  show (ProofW RuleWeakeningL tp [x]) =
---    show x ++ "\n\\doubleLine\n\\UnaryInfC{$" ++ show tp ++ "$}"
-  show (ProofW rl tp [x]) =
+  show (ProofW (Just RuleLeaf) tp []) = "\\AxiomC{$" ++ show tp ++ "$}"
+  show (ProofW Nothing tp [x]) =
+    show x ++ "\n\\doubleLine\n\\UnaryInfC{$" ++ show tp ++ "$}"
+  show (ProofW (Just rl) tp [x]) =
     show x ++ "\n\\RightLabel{\\scriptsize $" ++ texLabel rl ++ "$}\n\\UnaryInfC{$" ++ show tp ++ "$}"
-  show (ProofW rl tp [x, y]) =
+  show (ProofW (Just rl) tp [x, y]) =
     show x ++ "\n" ++ show y ++ "\\RightLabel{\\scriptsize $" ++ texLabel rl ++ "$}\n\\BinaryInfC{$" ++ show tp ++ "$}"
 
 instance Show Proof where

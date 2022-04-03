@@ -140,7 +140,7 @@ contractionL' :: Cedent -> Cedent -> Sentence -> Proof -> Proof
 contractionL' gamma delta a x =
   let (_, pi) = typeof x
       x1 = exchangesAnteL [] gamma (a : delta) a x -- a, gamma, a, delta ==> pi
-      x2 = exchangesAnteL [a] gamma delta a x -- a, a, gamma, delta ==> pi
+      x2 = exchangesAnteL [a] gamma delta a x1 -- a, a, gamma, delta ==> pi
       x3 = contractionL x2 -- a, gamma, delta ==> pi
       x4 = exchangesAnteR [] gamma delta a x3 -- gamma, a, delta ==> pi
   in
@@ -401,7 +401,7 @@ weakeningsSuccL (g : gamma) x =
   -- want: delta ==> g, gamma, pi
   let (delta, pi) = typeof x
       x1 = x -- delta ==> pi
-      x2 = weakeningsSuccL gamma x -- delta ==> gamma, pi
+      x2 = weakeningsSuccL gamma x1 -- delta ==> gamma, pi
       x3 = weakeningSuccL g x2 -- delta ==> g, gamma, pi
   in
     x3
@@ -504,8 +504,8 @@ contractDoubleR delta x = h [] delta x where
   h pi (d : delta) x =
     -- x: gamma ==> pi, d, delta, d, delta
     -- want: gamma ==> pi, d, delta
-    let x1 = exchangesSuccR (pi ++ d : delta) delta [] d x1 -- gamma ==> pi, d, delta, delta, d
-        x2 = exchangesSuccR pi (delta ++ delta) [d] d x2 -- gamma ==> pi, delta, delta, d, d
+    let x1 = exchangesSuccR (pi ++ d : delta) delta [] d x -- gamma ==> pi, d, delta, delta, d
+        x2 = exchangesSuccR pi (delta ++ delta) [d] d x1 -- gamma ==> pi, delta, delta, d, d
         x3 = contractionR x2 -- gamma ==> pi, delta, delta, d
         x4 = exchangesSuccL pi (delta ++ delta) [] d x3 -- gamma ==> pi, d, delta, delta
         x5 = h (pi ++ [d]) delta x4 -- gamma ==> pi, d, delta

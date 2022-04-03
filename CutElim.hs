@@ -1,21 +1,39 @@
 module CutElim where
 import Types
 import Helpers
+import Show ()
+import GHC.Stack.Types (HasCallStack)
 
 deleteDAs :: Sentence -> Cedent -> Cedent
 deleteDAs = filter . (/=)
 
+ensureValid :: Proof -> x -> x
+ensureValid = maybe id (\ x -> error ("Invalid inference:\n\n" ++ show x)) . proofValid
+
+
 infix 9 -*
 (-*) :: Cedent -> Sentence -> Cedent
 (-*) = flip deleteDAs
+
 
 -- f -> c -> (gamma ==> delta) -> (anteL, gamma, anteR ==> succL, (delta -* c), succR)
 -- First arg (f) is a special case for when delPatchR'ing with c = (Neg ...) and the
 -- rule NegR, or c = (Conj ...) and ConjL, etc. It takes the delPatchR'd proof and the
 -- original proof and returns what to do in this special case
 -- See pp. 38-39 in Buss' Handbook of Proof Theory, ch. 1
-delPatchR :: ([Proof] -> Proof -> Proof) -> Sentence -> (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
-delPatchR f c ws@(anteL, anteR, succL, succR) (Leaf a) =
+delPatchR :: GHC.Stack.Types.HasCallStack => ([Proof] -> Proof -> Proof) -> Sentence -> (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
+delPatchR f c ws x =
+  let x' = delPatchR' f c ws x in
+    ensureValid x' x'
+
+-- f -> c -> (gamma ==> delta) -> (anteL, (gamma -* c), anteR ==> succL, delta, succR)
+delPatchL :: GHC.Stack.Types.HasCallStack => ([Proof] -> Proof -> Proof) -> Sentence -> (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
+delPatchL f c ws x =
+  let x' = delPatchL' f c ws x in
+    ensureValid x' x'
+
+delPatchR' :: ([Proof] -> Proof -> Proof) -> Sentence -> (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
+delPatchR' f c ws@(anteL, anteR, succL, succR) (Leaf a) =
   if c == Atom a then
     -- want: anteL, a, anteR ==> succL, succR
     f [] (Leaf a)
@@ -25,7 +43,7 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (Leaf a) =
         x2 = weakenings ws x1 -- anteL, a, anteR ==> succL, a, succR
     in
       x2
-delPatchR f c ws@(anteL, anteR, succL, succR) (Cut gamma delta a x y) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (Cut gamma delta a x y) =
   -- x: gamma ==> delta, a
   -- y: a, gamma ==> delta
   -- want: anteL, gamma, anteR ==> succL, (delta -* c), succR
@@ -38,14 +56,14 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (Cut gamma delta a x y) =
         y2 = exchangesAnteL [] anteL (gamma ++ anteR) a y1 -- anteL, gamma, anteR, a ==> succL, (delta -* c), succR
     in
       cut x2 y2
-delPatchR f c ws@(anteL, anteR, succL, succR) (ExchangeL gamma delta pi a b x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (ExchangeL gamma delta pi a b x) =
   -- x: gamma, a, b, delta ==> pi
   -- want: anteL, gamma, b, a, delta, anteR ==> succL, (pi -* c), succR
   let x1 = delPatchR f c ws x -- anteL, gamma, a, b, delta, anteR ==> succL, (pi -* c), succR
       x2 = exchangeL (anteL ++ gamma) (delta ++ anteR) a b x1 -- anteL, gamma, b, a, delta, anteR ==> succL, (pi -* c), succR
   in
     x2
-delPatchR f c ws@(anteL, anteR, succL, succR) (ExchangeR gamma delta pi a b x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (ExchangeR gamma delta pi a b x) =
   -- x: gamma ==> delta, a, b, pi
   -- want: anteL, gamma, anteR ==> succL, ((delta, b, a, pi) -* c), succR
   if c == a || c == b then
@@ -55,14 +73,14 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (ExchangeR gamma delta pi a b x) =
         x2 = exchangeR (succL ++ (delta -* c)) ((pi -* c) ++ succR) a b x1 -- anteL, gamma, anteR ==> succL, (delta -* c), b, a (pi -* c), succR
     in
       x2
-delPatchR f c ws@(anteL, anteR, succL, succR) (ContractionL gamma delta a x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (ContractionL gamma delta a x) =
   -- x: a, a, gamma ==> delta
   -- want: anteL, a, gamma, anteR ==> succL, (delta -* c), succR
   let x1 = delPatchR f c ws x -- anteL, a, a, gamma, anteR ==> succL, (delta -* c), succR
       x2 = contractionL' anteL (gamma ++ anteR) a x1 -- anteL, a, gamma, anteR ==> succL, (delta -* c), succR
   in
     x2
-delPatchR f c ws@(anteL, anteR, succL, succR) (ContractionR gamma delta a x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (ContractionR gamma delta a x) =
   -- x: gamma ==> delta, a, a
   -- want: anteL, gamma, anteR ==> succL, (delta -* c), (a -* c), succR
   if c == a then
@@ -72,14 +90,14 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (ContractionR gamma delta a x) =
         x2 = contractionR' (succL ++ (delta -* c)) succR a x1 -- anteL, gamma, anteR ==> succL, (delta -* c), a, succR
     in
       x2
-delPatchR f c ws@(anteL, anteR, succL, succR) (WeakeningL gamma delta a x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (WeakeningL gamma delta a x) =
   -- x: gamma ==> delta
   -- want: anteL, a, gamma, anteR ==> succL, (delta -* c), succR
   let x1 = delPatchR f c ws x -- anteL, gamma, anteR ==> succL, (delta -* c), succR
       x2 = weakeningL' anteL (gamma ++ anteR) a x1 -- anteL, a, gamma, anteR ==> succL, (delta -* c), succR
   in
     x2
-delPatchR f c ws@(anteL, anteR, succL, succR) (WeakeningR gamma delta a x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (WeakeningR gamma delta a x) =
   -- x: gamma ==> delta
   -- want: anteL, gamma, anteR ==> succL, (delta -* c), (a -* c), succR
   if c == a then
@@ -89,7 +107,7 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (WeakeningR gamma delta a x) =
         x2 = weakeningR' (succL ++ (delta -* c)) succR a x1 -- anteL, gamma, anteR ==> succL, (delta -* c), a, succR
     in
       x2
-delPatchR f c ws@(anteL, anteR, succL, succR) (NegL gamma delta a x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (NegL gamma delta a x) =
   -- x: gamma ==> delta, a
   -- want: anteL, (Neg a), gamma, anteR ==> succL, (delta -* c), succR
   if c == a then
@@ -105,7 +123,7 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (NegL gamma delta a x) =
 --        x4 = exchangesAnteR [] anteL (gamma ++ anteR) (Neg a) x3 -- anteL, (Neg a), gamma, anteR ==> succL, (delta -* c), succR
     in
       x2
-delPatchR f c ws@(anteL, anteR, succL, succR) (NegR gamma delta a x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (NegR gamma delta a x) =
   -- x: a, gamma ==> delta
   -- want: anteL, gamma, anteR ==> succL, (delta -* c), (Neg a -* c), succR
   if c == Neg a then
@@ -121,7 +139,7 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (NegR gamma delta a x) =
 --        x4 = exchangesSuccL (succL ++ (delta -* c)) succR [] (Neg a) x3 -- anteL, gamma, anteR ==> succL, (delta -* c), (Neg a), succR
     in
       x2
-delPatchR f c ws@(anteL, anteR, succL, succR) (ConjL gamma delta a b x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (ConjL gamma delta a b x) =
   -- x: a, b, gamma ==> delta
   -- want: anteL, (Conj a b), gamma, anteR ==> succL, (delta -* c), succR
   let x1 = delPatchR f c ws x -- anteL, a, b, gamma, anteR ==> succL, (delta -* c), succR
@@ -132,7 +150,7 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (ConjL gamma delta a b x) =
 --      x5 = exchangesAnteR [] anteL (gamma ++ anteR) (Conj a b) x4 -- anteL, (Conj a b), gamma, anteR ==> succL, (delta -* c), succR
   in
     x2
-delPatchR f c ws@(anteL, anteR, succL, succR) (ConjR gamma delta a b x y) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (ConjR gamma delta a b x y) =
   -- x: gamma ==> delta, a
   -- y: gamma ==> delta, b
   -- want: anteL, gamma, anteR ==> succL, (delta -* c), (Conj a b -* c), succR
@@ -154,7 +172,7 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (ConjR gamma delta a b x y) =
 --            z2 = exchangesSuccL (succL ++ (delta -* c)) succR [] (Conj a b) z1 -- anteL, gamma, anteR ==> succL, (delta -* c), (Conj a b), succR
         in
           z1
-delPatchR f c ws@(anteL, anteR, succL, succR) (DisjL gamma delta a b x y) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (DisjL gamma delta a b x y) =
   -- x: a, gamma ==> delta
   -- y: b, gamma ==> delta
   -- want: anteL, (Disj a b), gamma, anteR ==> succL, (delta -* c), succR
@@ -167,7 +185,7 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (DisjL gamma delta a b x y) =
 --      z2 = exchangesAnteR [] anteL (gamma ++ anteR) (Disj a b) z1 -- anteL, (Disj a b), gamma, anteR ==> succL, (delta -* c), succR
   in
     z1
-delPatchR f c ws@(anteL, anteR, succL, succR) (DisjR gamma delta a b x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (DisjR gamma delta a b x) =
   -- x: gamma ==> delta, a, b
   -- want: anteL, gamma, anteR ==> succL, (delta -* c), (Disj a b -* c), succR
   let x1 = delPatchR f c ws x -- anteL, gamma, anteR ==> succL, (delta -* c), (a -* c), (b -* c), succR
@@ -211,7 +229,7 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (DisjR gamma delta a b x) =
 --            x5 = exchangesSuccL (succL ++ (delta -* c)) succR [] (Disj a b) x4
 --        in
 --          x5
-delPatchR f c ws@(anteL, anteR, succL, succR) (ImpL gamma delta a b x y) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (ImpL gamma delta a b x y) =
   -- x: gamma ==> delta, a
   -- y: b, gamma ==> delta
   -- want: anteL, (Imp a b), gamma, anteR ==> succL, (delta -* c), succR
@@ -224,7 +242,7 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (ImpL gamma delta a b x y) =
 --      z2 = exchangesAnteR [] anteL (gamma ++ anteR) (Imp a b) z1
   in
     z1
-delPatchR f c ws@(anteL, anteR, succL, succR) (ImpR gamma delta a b x) =
+delPatchR' f c ws@(anteL, anteR, succL, succR) (ImpR gamma delta a b x) =
   -- x: a, gamma ==> delta, b
   -- want: anteL, gamma, anteR ==> succL, (delta -* c), (Imp a b -* c), succR
   if c == Imp a b then
@@ -241,8 +259,8 @@ delPatchR f c ws@(anteL, anteR, succL, succR) (ImpR gamma delta a b x) =
       x3
 
 -- f -> c -> (gamma ==> delta) -> (anteL, (gamma -* c), anteR ==> succL, delta, succR)
-delPatchL :: ([Proof] -> Proof -> Proof) -> Sentence -> (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
-delPatchL f c ws@(anteL, anteR, succL, succR) (Leaf a) =
+delPatchL' :: ([Proof] -> Proof -> Proof) -> Sentence -> (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
+delPatchL' f c ws@(anteL, anteR, succL, succR) (Leaf a) =
   -- want: anteL, (a -* c), anteR ==> succL, a, succR
   if c == Atom a then
     f [] (Leaf a)
@@ -251,7 +269,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (Leaf a) =
         x2 = weakenings ws x1 -- anteL, a, anteR ==> succL, a, succR
     in
       x2
-delPatchL f c ws@(anteL, anteR, succL, succR) (Cut gamma delta a x y) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (Cut gamma delta a x y) =
   -- x: gamma ==> delta, a
   -- y: a, gamma ==> delta
   -- want: anteL, (gamma -* c), anteR ==> succL, delta, succR
@@ -266,7 +284,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (Cut gamma delta a x y) =
           z1 = cut x2 y2 -- anteL, (gamma -* c), anteR ==> succL, delta, succR
       in
         z1
-delPatchL f c ws@(anteL, anteR, succL, succR) (ExchangeL gamma delta pi a b x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (ExchangeL gamma delta pi a b x) =
   -- x: gamma, a, b, delta ==> pi
   -- want: anteL, (gamma -* c), (b -* c), (a -* c), (delta -* c), anteR ==> succL, pi, succR
   let x1 = delPatchL f c ws x -- anteL, (gamma -* c), (a -* c), (b -* c), (delta -* c), anteR ==> succL, pi, succR
@@ -277,14 +295,14 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (ExchangeL gamma delta pi a b x) =
       let x2 = exchangeL (anteL ++ (gamma -* c)) ((delta -* c) ++ anteR) a b x1 -- anteL, (gamma -* c), b, a, (delta -* c), anteR ==> succL, pi, succR
       in
         x2
-delPatchL f c ws@(anteL, anteR, succL, succR) (ExchangeR gamma delta pi a b x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (ExchangeR gamma delta pi a b x) =
   -- x: gamma ==> delta, a, b, pi
   -- want: anteL, (gamma -* c), anteR ==> succL, delta, b, a, pi, succR
   let x1 = delPatchL f c ws x -- anteL, (gamma -* c), anteR ==> succL, delta, a, b, pi, succR
       x2 = exchangeR (succL ++ delta) (pi ++ succR) a b x1 -- anteL, (gamma -* c), anteR ==> succL, delta, b, a, pi, succR
   in
     x2
-delPatchL f c ws@(anteL, anteR, succL, succR) (ContractionL gamma delta a x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (ContractionL gamma delta a x) =
   -- x: a, a, gamma ==> delta
   -- want: anteL, (a -* c), (gamma -* c), anteR ==> succL, delta, succR
   let x1 = delPatchL f c ws x -- anteL, (a -* c), (a -* c), (gamma -* c), anteR ==> succL, delta, succR
@@ -295,14 +313,14 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (ContractionL gamma delta a x) =
       let x2 = contractionL' anteL ((gamma -* c) ++ anteR) a x1 -- anteL, (a -* c), (gamma -* c), anteR ==> succL, delta, succR
       in
         x2
-delPatchL f c ws@(anteL, anteR, succL, succR) (ContractionR gamma delta a x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (ContractionR gamma delta a x) =
   -- x: gamma ==> delta, a, a
   -- want: anteL, (gamma -* c), anteR ==> succL, delta, a, succR
   let x1 = delPatchL f c ws x -- anteL, (gamma -* c), anteR ==> succL, delta, a, a, succR
       x2 = contractionR' (succL ++ delta) succR a x1 -- anteL, (gamma -* c), anteR ==> succL, delta, a, succR
   in
     x2
-delPatchL f c ws@(anteL, anteR, succL, succR) (WeakeningL gamma delta a x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (WeakeningL gamma delta a x) =
   -- x: gamma ==> delta
   -- want: anteL, (a -* c), (gamma -* c), anteR ==> succL, delta, succR
   let x1 = delPatchL f c ws x -- anteL, (gamma -* c), anteR ==> succL, delta, succR
@@ -311,14 +329,14 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (WeakeningL gamma delta a x) =
       x1
     else
       weakeningL' anteL ((gamma -* c) ++ anteR) a x1
-delPatchL f c ws@(anteL, anteR, succL, succR) (WeakeningR gamma delta a x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (WeakeningR gamma delta a x) =
   -- x: gamma ==> delta
   -- want: anteL, (gamma -* c), anteR ==> succL, delta, a, succR
   let x1 = delPatchL f c ws x -- anteL, (gamma -* c), anteR ==> succL, delta, succR
       x2 = weakeningR' (succL ++ delta) succR a x1 -- anteL, (gamma -* c), anteR ==> succL, delta, a, succR
   in
     x2
-delPatchL f c ws@(anteL, anteR, succL, succR) (NegL gamma delta a x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (NegL gamma delta a x) =
   -- x: gamma ==> delta, a
   -- want: anteL, (Neg a -* c), (gamma -* c), anteR ==> succL, delta, succR
   if c == Neg a then
@@ -332,7 +350,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (NegL gamma delta a x) =
 --        x4 = exchangesAnteR [] anteL ((gamma -* c) ++ anteR) (Neg a) x3 -- anteL, (Neg a), (gamma -* c), anteR ==> succL, delta, succR
     in
       x2
-delPatchL f c ws@(anteL, anteR, succL, succR) (NegR gamma delta a x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (NegR gamma delta a x) =
   -- x: a, gamma ==> delta
   -- want: anteL, (gamma -* c), anteR ==> succL, delta, (NegR a), succR
   let x1 = delPatchL f c ws x -- anteL, (a -* c), (gamma -* c), anteR ==> succL, delta, succR
@@ -343,7 +361,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (NegR gamma delta a x) =
 --      x4 = exchangesSuccL (succL ++ delta) succR [] (NegR a) x3 -- anteL, (gamma -* c), anteR ==> succL, delta, (NegR a), succR
   in
     x3
-delPatchL f c ws@(anteL, anteR, succL, succR) (ConjL gamma delta a b x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (ConjL gamma delta a b x) =
   -- x: a, b, gamma ==> delta
   -- want: anteL, (Conj a b -* c), (gamma -* c), anteR ==> succL, delta, succR
   if c == Conj a b then
@@ -361,7 +379,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (ConjL gamma delta a b x) =
           x3
       else
         conjL' anteL ((gamma -* c) ++ anteR) a b x1 -- anteL, (Conj a b), (gamma -* c), anteR ==> succL, delta, succR
-delPatchL f c ws@(anteL, anteR, succL, succR) (ConjR gamma delta a b x y) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (ConjR gamma delta a b x y) =
   -- x: gamma ==> delta, a
   -- y: gamma ==> delta, b
   -- want: anteL, (gamma -* c), anteR ==> succL, delta, (Conj a b), succR
@@ -370,7 +388,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (ConjR gamma delta a b x y) =
       z1 = conjR' (succL ++ delta) succR a b x1 y1 -- anteL, (gamma -* c), succR ==> succL, delta, Conj a b, succR
   in
     z1
-delPatchL f c ws@(anteL, anteR, succL, succR) (DisjL gamma delta a b x y) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (DisjL gamma delta a b x y) =
   -- x: a, gamma ==> delta
   -- y: b, gamma ==> delta
   -- want: anteL, (Disj a b -* c), (gamma -* c), anteR ==> succL, delta, succR
@@ -385,14 +403,14 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (DisjL gamma delta a b x y) =
           z1 = disjL' anteL ((gamma -* c) ++ anteR) a b x1 y1 -- anteL, (Disj a b), (gamma -* c), anteR ==> succL, delta, succR
       in
         z1
-delPatchL f c ws@(anteL, anteR, succL, succR) (DisjR gamma delta a b x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (DisjR gamma delta a b x) =
   -- x: gamma ==> delta, a, b
   -- want: anteL, (gamma -* c), anteR ==> succL, delta, (Disj a b), succR
   let x1 = delPatchL f c ws x -- anteL, (gamma -* c), anteR ==> succL, delta, a, b, succR
       x2 = disjR' (succL ++ delta) succR a b x1 -- anteL, (gamma -* c), anteR ==> succL, delta, (Disj a b), succR
   in
     x2
-delPatchL f c ws@(anteL, anteR, succL, succR) (ImpL gamma delta a b x y) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (ImpL gamma delta a b x y) =
   -- x: gamma ==> delta, a
   -- y: b, gamma ==> delta
   -- want: anteL, (Imp a b -* c), (gamma -* c), anteR ==> succL, delta, succR
@@ -405,7 +423,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (ImpL gamma delta a b x y) =
       weakeningLto (anteL ++ Imp a b : (gamma -* c) ++ anteR) y1
     else
       impL' anteL ((gamma -* c) ++ anteR) (succL ++ delta) succR a b x1 y1 -- anteL, (Imp a b), (gamma -* c), anteR ==> succL, delta, succR
-delPatchL f c ws@(anteL, anteR, succL, succR) (ImpR gamma delta a b x) =
+delPatchL' f c ws@(anteL, anteR, succL, succR) (ImpR gamma delta a b x) =
   -- x: a, gamma ==> delta, b
   -- want: anteL, (gamma -* c), anteR ==> succL, delta, (Imp a b), succR
   let x1 = delPatchL f c ws x -- anteL, (a -* c), (gamma -* c), anteR ==> succL, delta, b, succR
@@ -415,7 +433,7 @@ delPatchL f c ws@(anteL, anteR, succL, succR) (ImpR gamma delta a b x) =
     x3
 
 -- a -> (Q : (gamma ==> delta, a)) (R : (a, gamma ==> delta)) → (gamma ==> delta)
-cutReduce :: Sentence -> Proof -> Proof -> Proof
+cutReduce :: GHC.Stack.Types.HasCallStack => Sentence -> Proof -> Proof -> Proof
 cutReduce (Atom v) q r =
   -- q: gamma ==> delta, v
   -- r: v, gamma ==> delta
@@ -591,7 +609,7 @@ cutReduceS s p1 p2 = simplify (cutReduce s (expand p1) (expand p2))
 cutLower :: Int -> Proof -> Proof
 cutLower d = expand . cutLowerS d . simplify
 
-cutLowerS :: Int -> ProofS -> ProofS
+cutLowerS :: GHC.Stack.Types.HasCallStack => Int -> ProofS -> ProofS
 cutLowerS d =
   foldProofSS $ \ rl cs ss ps rs ->
   -- if rl == RuleCut then ss = [a] for some a
@@ -603,11 +621,12 @@ cutLowerS d =
     ProofS rl cs ss rs
 
 
-cutElim :: Proof -> Proof
+cutElim :: GHC.Stack.Types.HasCallStack => Proof -> Proof
 cutElim p = h p (maxCutDepth p) where
   h :: Proof -> Int -> Proof
-  h p 0 = cutLower 0 p
-  h p d = h (cutLower d p) (pred d)
+  h p d =
+    let p' = cutLower d p in
+      if d <= 0 then p' else h p' (pred d)
 
 cutElimS :: ProofS -> ProofS
 cutElimS = simplify . cutElim . expand
