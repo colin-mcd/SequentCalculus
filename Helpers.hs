@@ -1,57 +1,7 @@
 module Helpers where
 import Types
-
-simplify :: Proof -> ProofS
-simplify (Leaf a) = (ProofS RuleLeaf [] [Atom a] [])
-simplify (Cut g d a x1 x2) = (ProofS RuleCut [g, d] [a] [simplify x1, simplify x2])
-simplify (ExchangeL g d p a b x) = (ProofS RuleExchangeL [g, d, p] [a, b] [simplify x])
-simplify (ExchangeR g d p a b x) = (ProofS RuleExchangeR [g, d, p] [a, b] [simplify x])
-simplify (ContractionL g d a x) = (ProofS RuleContractionL [g, d] [a] [simplify x])
-simplify (ContractionR g d a x) = (ProofS RuleContractionR [g, d] [a] [simplify x])
-simplify (WeakeningL g d a x) = (ProofS RuleWeakeningL [g, d] [a] [simplify x])
-simplify (WeakeningR g d a x) = (ProofS RuleWeakeningR [g, d] [a] [simplify x])
-simplify (NegL g d a x) = (ProofS RuleNegL [g, d] [a] [simplify x])
-simplify (NegR g d a x) = (ProofS RuleNegR [g, d] [a] [simplify x])
-simplify (ConjL g d a b x) = (ProofS RuleConjL [g, d] [a, b] [simplify x])
-simplify (ConjR g d a b x1 x2) = (ProofS RuleConjR [g, d] [a, b] [simplify x1, simplify x2])
-simplify (DisjL g d a b x1 x2) = (ProofS RuleDisjL [g, d] [a, b] [simplify x1, simplify x2])
-simplify (DisjR g d a b x) = (ProofS RuleDisjR [g, d] [a, b] [simplify x])
-simplify (ImpL g d a b x1 x2) = (ProofS RuleImpL [g, d] [a, b] [simplify x1, simplify x2])
-simplify (ImpR g d a b x) = (ProofS RuleImpR [g, d] [a, b] [simplify x])
-
-expand :: ProofS -> Proof
-expand (ProofS RuleLeaf [] [Atom a] []) = (Leaf a)
-expand (ProofS RuleCut [g, d] [a] [x1, x2]) = (Cut g d a (expand x1) (expand x2))
-expand (ProofS RuleExchangeL [g, d, p] [a, b] [x]) = (ExchangeL g d p a b (expand x))
-expand (ProofS RuleExchangeR [g, d, p] [a, b] [x]) = (ExchangeR g d p a b (expand x))
-expand (ProofS RuleContractionL [g, d] [a] [x]) = (ContractionL g d a (expand x))
-expand (ProofS RuleContractionR [g, d] [a] [x]) = (ContractionR g d a (expand x))
-expand (ProofS RuleWeakeningL [g, d] [a] [x]) = (WeakeningL g d a (expand x))
-expand (ProofS RuleWeakeningR [g, d] [a] [x]) = (WeakeningR g d a (expand x))
-expand (ProofS RuleNegL [g, d] [a] [x]) = (NegL g d a (expand x))
-expand (ProofS RuleNegR [g, d] [a] [x]) = (NegR g d a (expand x))
-expand (ProofS RuleConjL [g, d] [a, b] [x]) = (ConjL g d a b (expand x))
-expand (ProofS RuleConjR [g, d] [a, b] [x1, x2]) = (ConjR g d a b (expand x1) (expand x2))
-expand (ProofS RuleDisjL [g, d] [a, b] [x1, x2]) = (DisjL g d a b (expand x1) (expand x2))
-expand (ProofS RuleDisjR [g, d] [a, b] [x]) = (DisjR g d a b (expand x))
-expand (ProofS RuleImpL [g, d] [a, b] [x1, x2]) = (ImpL g d a b (expand x1) (expand x2))
-expand (ProofS RuleImpR [g, d] [a, b] [x]) = (ImpR g d a b (expand x))
-
-
-weakRules :: [RuleLabel]
-weakRules = [RuleExchangeL, RuleExchangeR,
-             RuleContractionL, RuleContractionR,
-             RuleWeakeningL, RuleWeakeningR]
-
-propRules :: [RuleLabel]
-propRules = [RuleNegL, RuleNegR,
-             RuleConjL, RuleConjR,
-             RuleDisjL, RuleDisjR,
-             RuleImpL, RuleImpR]
-
-binaryRules :: [RuleLabel]
-binaryRules = [RuleCut, RuleConjR, RuleDisjL, RuleImpL]
-
+import Show()
+import GHC.Stack.Types (HasCallStack)
 
 isCutFreeS :: ProofS -> Bool
 isCutFreeS = foldProofS $ \ rl cs ss rs -> rl == RuleCut || or rs
@@ -84,23 +34,10 @@ foldN :: (Int -> x -> x) -> x -> Int -> x
 foldN s z 0 = z
 foldN s z n = s n (foldN s z n)
 
-typeof :: Proof -> (Cedent, Cedent)
-typeof (Leaf a) = ([Atom a], [Atom a])
-typeof (Cut gamma delta a x1 x2) = ((gamma), (delta))
-typeof (ExchangeL gamma delta pi a b x) = ((gamma ++ [b, a] ++ delta), (pi))
-typeof (ExchangeR gamma delta pi a b x) = ((gamma), (delta ++ [b, a] ++ pi))
-typeof (ContractionL gamma delta a x) = (([a] ++ gamma), (delta))
-typeof (ContractionR gamma delta a x) = ((gamma), (delta ++ [a]))
-typeof (WeakeningL gamma delta a x) = (([a] ++ gamma), (delta))
-typeof (WeakeningR gamma delta a x) = ((gamma), (delta ++ [a]))
-typeof (NegL gamma delta a x) = (([Neg a] ++ gamma), (delta))
-typeof (NegR gamma delta a x) = ((gamma), (delta ++ [Neg a]))
-typeof (ConjL gamma delta a b x) = (([Conj a b] ++ gamma), (delta))
-typeof (ConjR gamma delta a b x1 x2) = ((gamma), (delta ++ [Conj a b]))
-typeof (DisjL gamma delta a b x1 x2) = (([Imp a b] ++ gamma), (delta))
-typeof (DisjR gamma delta a b x) = ((gamma), (delta ++ [Disj a b]))
-typeof (ImpL gamma delta a b x1 x2) = (([Imp a b] ++ gamma), (delta))
-typeof (ImpR gamma delta a b x) = ((gamma), (delta ++ [Imp a b]))
+ensureValid :: GHC.Stack.Types.HasCallStack => Proof -> Proof -> Proof
+ensureValid x x' =
+  maybe (maybe x' (\ x'' -> error ("Invalid inference from\n" ++ show x ++ "\nto\n" ++ show x' ++ "\nin the part\n" ++ show x'')) (proofValid x')) (\ x -> error ("Invalid inference before:\n\n" ++ show x)) (proofValid x)
+
 
 -- a -> (gamma ==> delta, a) -> (a, gamma ==> delta) -> (gamma ==> delta)
 cut :: Proof -> Proof -> Proof
@@ -110,14 +47,16 @@ cut x y =
     Cut gamma delta a x y
 
 -- gamma -> delta -> a -> b -> (gamma, a, b, delta ==> pi) -> (gamma, b, a, delta ==> pi)
-exchangeL :: Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
+exchangeL :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
 exchangeL gamma delta a b x =
+  ensureValid x $
   let (_, pi) = typeof x in
     ExchangeL gamma delta pi a b x
 
 -- delta -> pi -> a -> b -> (gamma ==> delta, a, b, pi) -> (gamma ==> delta, b, a, pi)
-exchangeR :: Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
+exchangeR :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
 exchangeR delta pi a b x =
+  ensureValid x $
   let (gamma, _) = typeof x in
     ExchangeR gamma delta pi a b x
 
@@ -170,7 +109,7 @@ weakeningR a x =
   let (gamma, delta) = typeof x in
     WeakeningR gamma delta a x
 
--- gamma -> delta -> a -> (gamma, delta ==> pi) -> (gamma, a, delta ==>> pi)
+-- gamma -> delta -> a -> (gamma, delta ==> pi) -> (gamma, a, delta ==> pi)
 weakeningL' :: Cedent -> Cedent -> Sentence -> Proof -> Proof
 weakeningL' gamma delta a x =
   let (_, pi) = typeof x
@@ -309,7 +248,7 @@ impR x =
 impL' :: Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof -> Proof
 impL' gamma delta pi lambda a b x y =
   let x1 = exchangesSuccR pi lambda [] a x -- gamma, delta ==> pi, lambda, a
-      y1 = exchangesSuccL [] gamma delta b y -- b, gamma, delta ==> pi, lambda
+      y1 = exchangesAnteL [] gamma delta b y -- b, gamma, delta ==> pi, lambda
       z1 = impL x1 y1 -- Imp a b, gamma, delta ==> pi, lambda
       z2 = exchangesAnteR [] gamma delta (Imp a b) z1 -- gamma, Imp a b, delta ==> pi, lambda
   in
@@ -328,10 +267,10 @@ impR' gamma delta pi lambda a b x =
 -- gamma -> delta -> pi -> a ->
 --   (gamma, delta, a, pi ==> lambda) -> (gamma, a, delta, pi ==> lambda)
 exchangesAnteL :: Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
-exchangesAnteL gamma delta pi a x = h delta where
+exchangesAnteL gamma delta pi a x = h gamma delta where
   (_, lambda) = typeof x
-  h [] = x
-  h (b : delta) = exchangeL gamma (delta ++ pi) b a (h delta)
+  h gamma [] = x
+  h gamma (b : delta) = exchangeL gamma (delta ++ pi) b a (h (gamma ++ [b]) delta)
 
 -- gamma -> delta -> pi -> a ->
 --   (gamma, a, delta, pi ==> lambda) -> (gamma, delta, a, pi ==> lambda)
@@ -344,25 +283,27 @@ exchangesAnteR gamma delta pi a x = h gamma delta x where
 
 -- delta -> pi -> lambda -> a ->
 --   (gamma ==> delta, pi, a, lambda) -> (gamma ==> delta, a, pi, lambda)
-exchangesSuccL :: Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
-exchangesSuccL delta pi lambda a x = h pi where
+exchangesSuccL :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
+exchangesSuccL delta pi lambda a x = h delta pi where
   (gamma, _) = typeof x
-  h [] = x
-  h (b : pi) =
+  h delta [] = x
+  h delta (b : pi) =
     -- x :: (gamma => delta, b, pi, a, lambda)
     -- want (gamma => delta, a, b, pi, lambda)
-    exchangeR delta (pi ++ lambda) b a (h pi)
+    exchangeR delta (pi ++ lambda) b a (h (delta ++ [b]) pi)
   
 -- delta -> pi -> lambda -> a ->
 --   (gamma ==> delta, a, pi, lambda) -> (gamma ==> delta, pi, a, lambda)
-exchangesSuccR :: Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
+exchangesSuccR :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
 exchangesSuccR delta pi lambda a x = h delta pi x where
   (gamma, _) = typeof x
   h delta [] x = x
   h delta (b : pi) x =
     -- x :: (gamma ==> delta, a, b, pi, lambda)
     -- want (gamma ==> delta, b, pi, a, lambda)
-    h (delta ++ [b]) pi (exchangeR delta (pi ++ lambda) a b x)
+    let x1 = exchangeR delta (pi ++ lambda) a b x -- gamma ==> delta, b, a, pi, lambda
+    in
+      h (delta ++ [b]) pi x1
 
 -- a -> (delta ==> pi) -> (delta, a ==> pi)
 weakeningAnteR :: Sentence -> Proof -> Proof
@@ -391,8 +332,13 @@ weakeningsAnteL (g : gamma) x =
 weakeningsAnteR :: Cedent -> Proof -> Proof
 weakeningsAnteR [] x = x
 weakeningsAnteR (g : gamma) x =
-  let (delta, pi) = typeof x in
-    weakeningL g (weakeningsAnteR gamma x)
+  -- x: delta ==> pi
+  -- want: delta, g, gamma ==> pi
+  let (delta, pi) = typeof x
+      x1 = weakeningAnteR g x -- delta, g ==> pi
+      x2 = weakeningsAnteR gamma x1 -- delta, g, gamma ==> pi
+  in
+    x2
 
 -- gamma -> (delta ==> pi) -> (delta ==> gamma, pi)
 weakeningsSuccL :: Cedent -> Proof -> Proof
@@ -416,15 +362,16 @@ weakeningsSuccR (g : gamma) x =
 -- (anteL, anteR, succL, succR) -> (gamma ==> delta)
 --   -> (anteL, gamma, anteR ==> succL, delta, succR)
 weakenings :: (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
-weakenings (anteL, anteR, succL, succR) x =
+weakenings ws@(anteL, anteR, succL, succR) x =
   weakeningsAnteL anteL $
   weakeningsAnteR anteR $
   weakeningsSuccR succR $
   weakeningsSuccL succL x
 
 
+
 -- delta -> (gamma ==> delta') -> (gamma ==> delta)  (assumes delta' \subset delta)
-weakeningRto :: Cedent -> Proof -> Proof
+weakeningRto :: HasCallStack => Cedent -> Proof -> Proof
 weakeningRto delta x = h [] delta' delta x where
   (gamma, delta') = typeof x
   -- pi -> delta' -> delta -> (gamma ==> pi, delta') -> (gamma ==> pi, delta)
@@ -447,7 +394,7 @@ weakeningRto delta x = h [] delta' delta x where
         x3
 
 -- gamma -> (gamma' ==> delta) -> (gamma ==> delta)  (assumes gamma' \subset gamma)
-weakeningLto :: Cedent -> Proof -> Proof
+weakeningLto :: HasCallStack => Cedent -> Proof -> Proof
 weakeningLto gamma x = h [] gamma' gamma x where
   (gamma', delta) = typeof x
   -- pi -> gamma' -> gamma -> (pi, gamma' ==> delta) -> (pi, gamma ==> delta)
@@ -470,7 +417,7 @@ weakeningLto gamma x = h [] gamma' gamma x where
         x3
 
 -- gamma -> delta -> (gamma' ==> delta') -> (gamma ==> delta)  (assumes gamma' \subset gamma and delta' \subset delta)
-weakeningTo :: Cedent -> Cedent -> Proof -> Proof
+weakeningTo :: HasCallStack => Cedent -> Cedent -> Proof -> Proof
 weakeningTo gamma delta x = weakeningLto gamma (weakeningRto delta x)
 
 
@@ -551,13 +498,6 @@ proofValid p@(ImpL gamma delta a b x y) =
   checkIs p x (gamma, delta ++ [a]) |?| checkIs p y (b : gamma, delta)
 proofValid p@(ImpR gamma delta a b x) =
   proofValid x |?| checkIs p x (gamma, delta)
-
--- Concats a list of lists, adding a delimiter
--- Example: delimitWith ", " ["item 1", "item 2", "item 3"] = "item 1, item 2, item 3"
-delimitWith :: [a] -> [[a]] -> [a]
-delimitWith del [] = []
-delimitWith del [as] = as
-delimitWith del (h : t) = h ++ del ++ delimitWith del t
 
 infixr 2 |?|
 (|?|) :: Maybe a -> Maybe a -> Maybe a

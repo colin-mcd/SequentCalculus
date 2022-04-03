@@ -6,13 +6,13 @@ import CutElim
 
 main :: IO ()
 main =
-  let c = Atom "A" --Imp (Conj (Atom "A") (Atom "B")) (Disj (Atom "C") (Neg (Atom "D")))
+  let --c = Conj (Atom "A") (Atom "B")
+      c = Imp (Conj (Atom "A") (Atom "B")) (Disj (Atom "C") (Neg (Atom "D")))
       l = Leaf "E"
       x = cut (weakeningR c l) (weakeningL c l)
-      xcf = cutElim x
+      x' = ensureValid x x
+      xcf = ensureValid x' (cutElim x')
   in
-    ensureValid x $
-    ensureValid xcf $
-    putStrLn (show x) >>
+    putStrLn (show x') >>
     putStrLn (show xcf)
 

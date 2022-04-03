@@ -1,8 +1,7 @@
 module Show where
 import Types
-import Helpers
 
-collapseWeakRules = True
+collapseWeakRules = False
 
 data Sequent = Sequent Cedent Cedent
 
@@ -72,3 +71,9 @@ instance Show ProofW where
 instance Show Proof where
   show x = "\\begin{prooftree}\n" ++ show (proofS2W (simplify x)) ++ "\n\\end{prooftree}"
 
+-- Concats a list of lists, adding a delimiter
+-- Example: delimitWith ", " ["item 1", "item 2", "item 3"] = "item 1, item 2, item 3"
+delimitWith :: [a] -> [[a]] -> [a]
+delimitWith del [] = []
+delimitWith del [as] = as
+delimitWith del (h : t) = h ++ del ++ delimitWith del t
