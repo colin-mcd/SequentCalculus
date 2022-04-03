@@ -36,7 +36,11 @@ foldN s z n = s n (foldN s z n)
 
 ensureValid :: GHC.Stack.Types.HasCallStack => Proof -> Proof -> Proof
 ensureValid x x' =
-  maybe (maybe x' (\ x'' -> error ("Invalid inference from\n" ++ show x ++ "\nto\n" ++ show x' ++ "\nin the part\n" ++ show x'')) (proofValid x')) (\ x -> error ("Invalid inference before:\n\n" ++ show x)) (proofValid x)
+  maybe (maybe x' (\ x'' -> error ("Invalid inference from\n" ++ show x ++ "\nto\n" ++ show x' ++ "\nin the part\n" ++ show x'' ++ "\n" ++ show (typeof x) ++ "\n" ++ show (typeof x'))) (proofValid x')) (\ x -> error ("Invalid inference before:\n\n" ++ show x)) (proofValid x)
+
+ensureValid' :: (Show a, GHC.Stack.Types.HasCallStack) => a -> Proof -> Proof -> Proof
+ensureValid' a x x' =
+  maybe (maybe x' (\ x'' -> error ("Invalid inference from\n" ++ show x ++ "\nto\n" ++ show x' ++ "\nin the part\n" ++ show x'' ++ "\n" ++ show a ++ "\n" ++ show (typeof x) ++ "\n" ++ show (typeof x'))) (proofValid x')) (\ x -> error ("Invalid inference before:\n\n" ++ show x ++ "\n" ++ show a ++ "\n" ++ show (typeof x) ++ "\n" ++ show (typeof x'))) (proofValid x)
 
 
 -- a -> (gamma ==> delta, a) -> (a, gamma ==> delta) -> (gamma ==> delta)
@@ -210,12 +214,12 @@ disjR x =
     DisjR gamma delta a b x
 
 -- gamma -> delta -> a -> b -> (gamma, a, delta ==> pi) -> (gamma, b, delta ==> pi) -> (gamma, Disj a b, delta ==> pi)
-disjL' :: Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof -> Proof
+disjL' :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof -> Proof
 disjL' gamma delta a b x y =
   let x1 = exchangesAnteL [] gamma delta a x -- a, gamma, delta ==> pi
-      y1 = exchangesAnteL [] gamma delta a y -- b, gamma, delta ==> pi
-      z1 = disjL x1 y1 -- Conj a b, gamma, delta ==> pi
-      z2 = exchangesAnteR [] gamma delta (Conj a b) z1 -- gamma, Conj a b, delta ==> pi
+      y1 = exchangesAnteL [] gamma delta b y -- b, gamma, delta ==> pi
+      z1 = disjL x1 y1 -- Disj a b, gamma, delta ==> pi
+      z2 = exchangesAnteR [] gamma delta (Disj a b) z1 -- gamma, Disj a b, delta ==> pi
   in
     z2
 
@@ -266,11 +270,16 @@ impR' gamma delta pi lambda a b x =
 
 -- gamma -> delta -> pi -> a ->
 --   (gamma, delta, a, pi ==> lambda) -> (gamma, a, delta, pi ==> lambda)
-exchangesAnteL :: Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
+exchangesAnteL :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
 exchangesAnteL gamma delta pi a x = h gamma delta where
   (_, lambda) = typeof x
   h gamma [] = x
-  h gamma (b : delta) = exchangeL gamma (delta ++ pi) b a (h (gamma ++ [b]) delta)
+  h gamma (b : delta) =
+    -- x: gamma, b, delta, a, pi ==> lambda
+    -- want: gamma, a, b, delta, pi ==> lambda
+    let x1 = h (gamma ++ [b]) delta -- gamma, b, a, delta, pi ==> lambda
+    in
+      exchangeL gamma (delta ++ pi) b a x1
 
 -- gamma -> delta -> pi -> a ->
 --   (gamma, a, delta, pi ==> lambda) -> (gamma, delta, a, pi ==> lambda)
@@ -418,7 +427,9 @@ weakeningLto gamma x = h [] gamma' gamma x where
 
 -- gamma -> delta -> (gamma' ==> delta') -> (gamma ==> delta)  (assumes gamma' \subset gamma and delta' \subset delta)
 weakeningTo :: HasCallStack => Cedent -> Cedent -> Proof -> Proof
-weakeningTo gamma delta x = weakeningLto gamma (weakeningRto delta x)
+weakeningTo gamma delta x =
+  let x' = weakeningLto gamma (weakeningRto delta x) in
+    if typeof x' == (gamma, delta) then x' else error ("weakeningTo " ++ show gamma ++ " " ++ show delta ++ " actually got type " ++ show (typeof x))
 
 
 -- contractDouble :: gamma -> delta -> (gamma, gamma ==> delta, delta) -> (gamma ==> delta)
@@ -492,7 +503,7 @@ proofValid p@(DisjL gamma delta a b x y) =
   proofValid x |?| proofValid y |?|
   checkIs p x (a : gamma, delta) |?| checkIs p y (b : gamma, delta)
 proofValid p@(DisjR gamma delta a b x) =
-  proofValid x |?| checkIs p x (gamma, delta)
+  proofValid x |?| checkIs p x (gamma, delta ++ [a, b])
 proofValid p@(ImpL gamma delta a b x y) =
   proofValid x |?| proofValid y |?|
   checkIs p x (gamma, delta ++ [a]) |?| checkIs p y (b : gamma, delta)
@@ -503,6 +514,61 @@ infixr 2 |?|
 (|?|) :: Maybe a -> Maybe a -> Maybe a
 Nothing |?| m_else = m_else
 Just a |?| m_else = Just a
+
+leaf :: GHC.Stack.Types.HasCallStack => Sentence -> Proof
+leaf s = leaf' s -- let x = leaf' s in ensureValid' s x x
+-- s -> (s ==> s) for any sentence s (not just an atom)
+leaf' :: GHC.Stack.Types.HasCallStack => Sentence -> Proof
+leaf' (Atom v) = Leaf v
+leaf' (Neg a) =
+  let x1 = leaf a -- a ==> a
+      x2 = negL x1 -- Neg a, a ==>
+      x3 = exchangeL [] [] (Neg a) a x2 -- a, Neg a ==>
+      x4 = negR x3 -- Neg a ==> Neg a
+  in
+    ensureValid x1 x4
+leaf' (Conj a b) =
+  let x1 = leaf a -- a ==> a
+      y1 = leaf b -- b ==> b
+      x2 = weakeningTo [a, b] [a] x1 -- a, b ==> a
+      y2 = weakeningTo [a, b] [b] y1 -- a, b ==> b
+      z1 = conjR x2 y2 -- a, b ==> Conj a b
+      z2 = conjL z1 -- Conj a b ==> Conj a b
+  in
+    ensureValid x1 (ensureValid y1 z2)
+leaf' (Disj a b) =
+  let x1 = leaf a -- a ==> a
+      y1 = leaf b -- b ==> b
+      x2 = weakeningTo [a] [a, b] x1 -- a ==> a, b
+      y2 = weakeningTo [b] [a, b] y1 -- b ==> a, b
+      z1 = disjL x2 y2 -- Disj a b ==> a, b
+      z2 = disjR z1 -- Disj a b ==> Disj a b
+      f :: GHC.Stack.Types.HasCallStack => Proof -> Proof -> Proof
+      f = ensureValid' (Disj a b)
+  in
+    f
+      (f
+        (f
+          (f
+            (f
+              (f
+                y1
+                y1)
+              y2)
+            x1)
+          x2)
+        z1)
+      z2
+leaf' (Imp a b) =
+  let x1 = leaf a -- a ==> a
+      y1 = leaf b -- b ==> b
+      x2 = weakeningTo [a] [b, a] x1 -- a ==> b, a
+      y2 = weakeningTo [b, a] [b] y1 -- b, a ==> b
+      z1 = impL x2 y2 -- Imp a b, a ==> b
+      z2 = exchangeL [] [] (Imp a b) a z1 -- a, Imp a b ==> b
+      z3 = impR z2 -- Imp a b ==> Imp a b
+  in
+    ensureValid x1 (ensureValid y1 z3)
 
 --------------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 module Show where
 import Types
 
-collapseWeakRules = False
+collapseWeakRules = True
 
 data Sequent = Sequent Cedent Cedent
 
@@ -57,7 +57,7 @@ proofS2W x = weaken (h x) where
 
 
 instance Show Sequent where
-  show (Sequent a s) = delimitWith "," (map show a) ++ " \\implies " ++ delimitWith "," (map show s)
+  show (Sequent a s) = delimitWith "," (map show a) ++ " \\longrightarrow " ++ delimitWith "," (map show s)
 
 instance Show ProofW where
   show (ProofW (Just RuleLeaf) tp []) = "\\AxiomC{$" ++ show tp ++ "$}"

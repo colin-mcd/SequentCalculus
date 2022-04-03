@@ -420,7 +420,7 @@ cutReduce (Neg b) q r =
         x4
 
     fr :: GHC.Stack.Types.HasCallStack => [Proof] -> Proof -> Proof
-    fr [x1] (NegR gamma delta _ _) =
+    fr [x1] (NegL gamma delta _ _) =
       -- x1: (gamma -* Neg b) ==> b, delta, b
       -- want: (gamma -* Neg b) ==> b, delta
       let x2 = exchangesSuccL [b] delta [] b x1 -- (gamma -* Neg b) ==> b, b, delta
@@ -489,7 +489,7 @@ cutReduce (Disj b c) q r =
     fq [x] (DisjR gamma delta _ _ _) =
       -- x: gamma ==> (delta -* Disj b c), b, c, b, c
       -- want: gamma ==> (delta -* Disj b c), b, c
-      let x1 = exchangesSuccR ((delta -* Disj b c) ++ [b]) [b] [c] b x -- gamma ==> (delta -* Disj b c), b, b, c, c
+      let x1 = exchangesSuccR ((delta -* Disj b c) ++ [b]) [b] [c] c x -- gamma ==> (delta -* Disj b c), b, b, c, c
           x2 = contractionR' ((delta -* Disj b c) ++ [b, b]) [] c x1 -- gamma ==> (delta -* Disj b c), b, b, c
           x3 = contractionR' (delta -* Disj b c) [c] b x2 -- gamma ==> (delta -* Disj b c), b, c
       in
