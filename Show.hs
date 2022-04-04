@@ -1,8 +1,6 @@
 module Show where
 import Types
 
-collapseWeakRules = True
-
 data Sequent = Sequent Cedent Cedent
 
 tpSeq :: ProofS -> Sequent
@@ -40,8 +38,8 @@ instance Show Sentence where
 --typeofW (ProofW rl cs xs) = cs
 
 -- Collapses weak structural rules into one weak inference
-proofS2W :: ProofS -> ProofW
-proofS2W x = weaken (h x) where
+proofS2W :: Bool -> ProofS -> ProofW
+proofS2W collapseWeakRules x = weaken (h x) where
   weaken :: (ProofW, Maybe Sequent) -> ProofW
   weaken (p, Nothing) = p
   weaken (p, Just tp) = ProofW Nothing tp [p]
@@ -68,9 +66,13 @@ instance Show ProofW where
   show (ProofW (Just rl) tp [x, y]) =
     show x ++ "\n" ++ show y ++ "\\RightLabel{\\scriptsize $" ++ texLabel rl ++ "$}\n\\BinaryInfC{$" ++ show tp ++ "$}"
 
+
+showProof :: Bool -> Proof -> String
+showProof verbose x =
+  "\\begin{prooftree}\n" ++ show (proofS2W (not verbose) (simplify x)) ++ "\n\\end{prooftree}"
+  
 instance Show Proof where
-  -- \\resizebox{\\textwidth}{!}{\\vbox{
-  show x = "\\begin{prooftree}\n" ++ show (proofS2W (simplify x)) ++ "\n\\end{prooftree}"
+  show  = showProof False
 
 -- Concats a list of lists, adding a delimiter
 -- Example: delimitWith ", " ["item 1", "item 2", "item 3"] = "item 1, item 2, item 3"
