@@ -6,7 +6,7 @@ import CutElim
 
 main :: IO ()
 main =
-  let c = Imp (Conj (Neg (Atom "A")) (Imp (Imp (Atom "B") (Disj (Atom "C") (Atom "A"))) (Imp (Atom "C") (Atom "D")))) (Conj (Disj (Atom "C") (Atom "A")) (Neg (Atom "D")))
+  let c = Imp (Conj (Neg (Disj (Atom "C") (Atom "A"))) (Imp (Imp (Atom "B") (Disj (Atom "C") (Atom "A"))) (Imp (Atom "C") (Disj (Atom "C") (Atom "A"))))) (Conj (Disj (Atom "C") (Atom "A")) (Neg (Atom "D")))
       l = leaf (Disj (Atom "C") (Atom "A"))
       l' = ensureValid l l
       x = cut (weakeningR c l') (weakeningL c l')
