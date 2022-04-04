@@ -69,6 +69,7 @@ instance Show ProofW where
     show x ++ "\n" ++ show y ++ "\\RightLabel{\\scriptsize $" ++ texLabel rl ++ "$}\n\\BinaryInfC{$" ++ show tp ++ "$}"
 
 instance Show Proof where
+  -- \\resizebox{\\textwidth}{!}{\\vbox{
   show x = "\\begin{prooftree}\n" ++ show (proofS2W (simplify x)) ++ "\n\\end{prooftree}"
 
 -- Concats a list of lists, adding a delimiter

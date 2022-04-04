@@ -343,9 +343,9 @@ delPatchL' f c ws@(anteL, anteR, succL, succR) (DisjL gamma delta a b x y) =
     else
       let x2 = weakeningLto (anteL ++ a : (gamma -* c) ++ anteR) x1 -- anteL, a, (gamma -* c), anteR ==> succL, delta, succR
           y2 = weakeningLto (anteL ++ b : (gamma -* c) ++ anteR) y1 -- anteL, b, (gamma -* c), anteR ==> succL, delta, succR
-          z1 = disjL' anteL ((gamma -* c) ++ anteR) a b x1 y1 -- anteL, (Disj a b), (gamma -* c), anteR ==> succL, delta, succR
+          z1 = disjL' anteL ((gamma -* c) ++ anteR) a b x2 y2 -- anteL, (Disj a b), (gamma -* c), anteR ==> succL, delta, succR
       in
-        z1
+        ensureValid x2 z1
 delPatchL' f c ws@(anteL, anteR, succL, succR) (DisjR gamma delta a b x) =
   -- x: gamma ==> delta, a, b
   -- want: anteL, (gamma -* c), anteR ==> succL, delta, (Disj a b), succR

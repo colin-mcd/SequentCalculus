@@ -224,7 +224,7 @@ disjL' gamma delta a b x y =
     z2
 
 -- delta -> pi -> a -> b -> (gamma ==> delta, a, b, pi) -> (gamma ==> delta, Disj a b, pi)
-disjR' :: Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
+disjR' :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
 disjR' delta pi a b x =
   let x1 = exchangesSuccR (delta ++ [a]) pi [] b x -- gamma ==> delta, a, pi, b
       x2 = exchangesSuccR delta pi [b] a x1 -- gamma ==> delta, pi, a, b
@@ -249,7 +249,7 @@ impR x =
     ImpR gamma delta a b x
 
 -- gamma -> delta -> pi -> lambda -> a -> b -> (gamma, delta ==> pi, a, lambda) -> (gamma, b, delta ==> pi, lambda) -> (gamma, Imp a b, delta ==> pi, lambda)
-impL' :: Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof -> Proof
+impL' :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof -> Proof
 impL' gamma delta pi lambda a b x y =
   let x1 = exchangesSuccR pi lambda [] a x -- gamma, delta ==> pi, lambda, a
       y1 = exchangesAnteL [] gamma delta b y -- b, gamma, delta ==> pi, lambda
@@ -259,7 +259,7 @@ impL' gamma delta pi lambda a b x y =
     z2
 
 -- gamma -> delta -> pi -> lambda -> a -> b -> (gamma, a, delta ==> pi, b, lambda) -> (gamma, delta ==> pi, Imp a b, lambda)
-impR' :: Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
+impR' :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Cedent -> Cedent -> Sentence -> Sentence -> Proof -> Proof
 impR' gamma delta pi lambda a b x =
   let x1 = exchangesAnteL [] gamma delta a x -- a, gamma, delta ==> pi, b, lambda
       x2 = exchangesSuccR pi lambda [] b x1 -- a, gamma, delta ==> pi, lambda, b
@@ -283,7 +283,7 @@ exchangesAnteL gamma delta pi a x = h gamma delta where
 
 -- gamma -> delta -> pi -> a ->
 --   (gamma, a, delta, pi ==> lambda) -> (gamma, delta, a, pi ==> lambda)
-exchangesAnteR :: Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
+exchangesAnteR :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Cedent -> Sentence -> Proof -> Proof
 exchangesAnteR gamma delta pi a x = h gamma delta x where
   (_, lambda) = typeof x
   h gamma [] x = x
@@ -315,13 +315,13 @@ exchangesSuccR delta pi lambda a x = h delta pi x where
       h (delta ++ [b]) pi x1
 
 -- a -> (delta ==> pi) -> (delta, a ==> pi)
-weakeningAnteR :: Sentence -> Proof -> Proof
+weakeningAnteR :: GHC.Stack.Types.HasCallStack => Sentence -> Proof -> Proof
 weakeningAnteR a x =
   let (delta, pi) = typeof x in
     exchangesAnteR [] delta [] a (weakeningL a x)
 
 -- a -> (delta ==> pi) -> (delta ==> a, pi)
-weakeningSuccL :: Sentence -> Proof -> Proof
+weakeningSuccL :: GHC.Stack.Types.HasCallStack => Sentence -> Proof -> Proof
 weakeningSuccL a x =
   let (delta, pi) = typeof x
       x1 = x -- delta ==> pi
@@ -331,14 +331,14 @@ weakeningSuccL a x =
     x3
 
 -- gamma -> (delta ==> pi) -> (gamma, delta ==> pi)
-weakeningsAnteL :: Cedent -> Proof -> Proof
+weakeningsAnteL :: GHC.Stack.Types.HasCallStack => Cedent -> Proof -> Proof
 weakeningsAnteL [] x = x
 weakeningsAnteL (g : gamma) x =
   let (delta, pi) = typeof x in
     weakeningL g (weakeningsAnteL gamma x)
 
 -- gamma -> (delta ==> pi) -> (delta, gamma ==> pi)
-weakeningsAnteR :: Cedent -> Proof -> Proof
+weakeningsAnteR :: GHC.Stack.Types.HasCallStack => Cedent -> Proof -> Proof
 weakeningsAnteR [] x = x
 weakeningsAnteR (g : gamma) x =
   -- x: delta ==> pi
@@ -350,7 +350,7 @@ weakeningsAnteR (g : gamma) x =
     x2
 
 -- gamma -> (delta ==> pi) -> (delta ==> gamma, pi)
-weakeningsSuccL :: Cedent -> Proof -> Proof
+weakeningsSuccL :: GHC.Stack.Types.HasCallStack => Cedent -> Proof -> Proof
 weakeningsSuccL [] x = x
 weakeningsSuccL (g : gamma) x =
   -- want: delta ==> g, gamma, pi
@@ -362,7 +362,7 @@ weakeningsSuccL (g : gamma) x =
     x3
 
 -- gamma -> (delta ==> pi) -> (delta ==> pi, gamma)
-weakeningsSuccR :: Cedent -> Proof -> Proof
+weakeningsSuccR :: GHC.Stack.Types.HasCallStack => Cedent -> Proof -> Proof
 weakeningsSuccR [] x = x
 weakeningsSuccR (g : gamma) x =
   let (delta, pi) = typeof x in
@@ -370,7 +370,7 @@ weakeningsSuccR (g : gamma) x =
 
 -- (anteL, anteR, succL, succR) -> (gamma ==> delta)
 --   -> (anteL, gamma, anteR ==> succL, delta, succR)
-weakenings :: (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
+weakenings :: GHC.Stack.Types.HasCallStack => (Cedent, Cedent, Cedent, Cedent) -> Proof -> Proof
 weakenings ws@(anteL, anteR, succL, succR) x =
   weakeningsAnteL anteL $
   weakeningsAnteR anteR $
@@ -380,7 +380,7 @@ weakenings ws@(anteL, anteR, succL, succR) x =
 
 
 -- delta -> (gamma ==> delta') -> (gamma ==> delta)  (assumes delta' \subset delta)
-weakeningRto :: HasCallStack => Cedent -> Proof -> Proof
+weakeningRto :: GHC.Stack.Types.HasCallStack => Cedent -> Proof -> Proof
 weakeningRto delta x = h [] delta' delta x where
   (gamma, delta') = typeof x
   -- pi -> delta' -> delta -> (gamma ==> pi, delta') -> (gamma ==> pi, delta)
@@ -403,7 +403,7 @@ weakeningRto delta x = h [] delta' delta x where
         x3
 
 -- gamma -> (gamma' ==> delta) -> (gamma ==> delta)  (assumes gamma' \subset gamma)
-weakeningLto :: HasCallStack => Cedent -> Proof -> Proof
+weakeningLto :: GHC.Stack.Types.HasCallStack => Cedent -> Proof -> Proof
 weakeningLto gamma x = h [] gamma' gamma x where
   (gamma', delta) = typeof x
   -- pi -> gamma' -> gamma -> (pi, gamma' ==> delta) -> (pi, gamma ==> delta)
@@ -433,11 +433,11 @@ weakeningTo gamma delta x =
 
 
 -- contractDouble :: gamma -> delta -> (gamma, gamma ==> delta, delta) -> (gamma ==> delta)
-contractDouble :: Cedent -> Cedent -> Proof -> Proof
+contractDouble :: GHC.Stack.Types.HasCallStack => Cedent -> Cedent -> Proof -> Proof
 contractDouble gamma delta x = contractDoubleL gamma (contractDoubleR delta x)
 
 -- contractDoubleL :: gamma -> (gamma, gamma ==> delta) -> (gamma ==> delta)
-contractDoubleL :: Cedent -> Proof -> Proof
+contractDoubleL :: GHC.Stack.Types.HasCallStack => Cedent -> Proof -> Proof
 contractDoubleL gamma x = h [] gamma x where
   (_, delta) = typeof x
   -- pi -> gamma -> (pi, gamma, gamma ==> delta) -> (pi, gamma ==> delta)
@@ -454,7 +454,7 @@ contractDoubleL gamma x = h [] gamma x where
       x5
 
 -- contractDoubleR :: delta -> (gamma ==> delta, delta) -> (gamma ==> delta)
-contractDoubleR :: Cedent -> Proof -> Proof
+contractDoubleR :: GHC.Stack.Types.HasCallStack => Cedent -> Proof -> Proof
 contractDoubleR delta x = h [] delta x where
   (gamma, _) = typeof x
   -- pi -> delta -> (gamma ==> pi, delta, delta) -> (gamma ==> pi, delta)
