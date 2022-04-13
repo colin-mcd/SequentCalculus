@@ -1,10 +1,12 @@
 module Show where
 import Types
 
-data Sequent = Sequent Cedent Cedent
+data EmphSent = EmphSent Sentence Bool
+type EmphCedent = [EmphSent]
+data Sequent = Sequent EmphCedent EmphCedent
 
 tpSeq :: ProofS -> Sequent
-tpSeq = uncurry Sequent . typeof . expand
+tpSeq = typeofEmph . expand
 
 data ProofW = ProofW (Maybe RuleLabel) Sequent [ProofW]
 
@@ -42,7 +44,7 @@ proofS2W :: Bool -> ProofS -> ProofW
 proofS2W collapseWeakRules x = weaken (h x) where
   weaken :: (ProofW, Maybe Sequent) -> ProofW
   weaken (p, Nothing) = p
-  weaken (p, Just tp) = ProofW Nothing tp [p]
+  weaken (p, Just tp) = ProofW Nothing (delemph tp) [p]
   
   h :: ProofS -> (ProofW, Maybe Sequent)
   h x@(ProofS rl cs ss xs)
@@ -53,6 +55,10 @@ proofS2W collapseWeakRules x = weaken (h x) where
       let xws = map (weaken . h) xs in
         (ProofW (Just rl) (tpSeq x) xws, Nothing)
 
+instance Show EmphSent where
+  show (EmphSent s False) = show s
+  show (EmphSent s True) = "{\\color{red} " ++ show s ++ "}"
+--  show (EmphSent s True) = "\\mathbf{" ++ show s ++ "}"
 
 instance Show Sequent where
   show (Sequent a s) = delimitWith "," (map show a) ++ " \\longrightarrow " ++ delimitWith "," (map show s)
@@ -80,3 +86,32 @@ delimitWith :: [a] -> [[a]] -> [a]
 delimitWith del [] = []
 delimitWith del [as] = as
 delimitWith del (h : t) = h ++ del ++ delimitWith del t
+
+
+emph' :: Bool -> [Sentence] -> [EmphSent]
+emph' e = map $ \ x -> EmphSent x e
+emph = emph' True
+noemph = emph' False
+delemph' :: [EmphSent] -> [EmphSent]
+delemph' = map $ \ (EmphSent x _) -> EmphSent x False
+delemph :: Sequent -> Sequent
+delemph (Sequent a s) = Sequent (delemph' a) (delemph' s)
+
+
+typeofEmph :: Proof -> Sequent
+typeofEmph (Leaf a) = Sequent (noemph [Atom a]) (noemph [Atom a])
+typeofEmph (Cut gamma delta a x1 x2) = Sequent (noemph gamma) (noemph delta)
+typeofEmph (ExchangeL gamma delta pi a b x) = Sequent (noemph gamma ++ emph [b, a] ++ noemph delta) (noemph pi)
+typeofEmph (ExchangeR gamma delta pi a b x) = Sequent (noemph gamma) (noemph delta ++ emph [b, a] ++ noemph pi)
+typeofEmph (ContractionL gamma delta a x) = Sequent (emph [a] ++ noemph gamma) (noemph delta)
+typeofEmph (ContractionR gamma delta a x) = Sequent (noemph gamma) (noemph delta ++ emph [a])
+typeofEmph (WeakeningL gamma delta a x) = Sequent (emph [a] ++ noemph gamma) (noemph delta)
+typeofEmph (WeakeningR gamma delta a x) = Sequent (noemph gamma) (noemph delta ++ emph [a])
+typeofEmph (NegL gamma delta a x) = Sequent (emph [Neg a] ++ noemph gamma) (noemph delta)
+typeofEmph (NegR gamma delta a x) = Sequent (noemph gamma) (noemph delta ++ emph [Neg a])
+typeofEmph (ConjL gamma delta a b x) = Sequent (emph [Conj a b] ++ noemph gamma) (noemph delta)
+typeofEmph (ConjR gamma delta a b x1 x2) = Sequent (noemph gamma) (noemph delta ++ emph [Conj a b])
+typeofEmph (DisjL gamma delta a b x1 x2) = Sequent (emph [Disj a b] ++ noemph gamma) (noemph delta)
+typeofEmph (DisjR gamma delta a b x) = Sequent (noemph gamma) (noemph delta ++ emph [Disj a b])
+typeofEmph (ImpL gamma delta a b x1 x2) = Sequent (emph [Imp a b] ++ noemph gamma) (noemph delta)
+typeofEmph (ImpR gamma delta a b x) = Sequent (noemph gamma) (noemph delta ++ emph [Imp a b])
