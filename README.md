@@ -9,6 +9,6 @@ make
 
 Then to run the program:
 ```bash
-cat sample_proof.txt | ./CutElim.exe [-v] > cut-free-proof.tex
+cat sample_proof.txt | ./CutElim.exe | tex/tex2pdf.sh
 ```
 And it will write a nice LaTeX proof in `cut-free-proof.tex`.
