@@ -508,7 +508,7 @@ proofValid p@(ImpL gamma delta a b x y) =
   proofValid x |?| proofValid y |?|
   checkIs p x (gamma, delta ++ [a]) |?| checkIs p y (b : gamma, delta)
 proofValid p@(ImpR gamma delta a b x) =
-  proofValid x |?| checkIs p x (gamma, delta)
+  proofValid x |?| checkIs p x ([a] ++ gamma, delta ++ [b])
 
 infixr 2 |?|
 (|?|) :: Maybe a -> Maybe a -> Maybe a

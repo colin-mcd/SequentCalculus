@@ -1,6 +1,5 @@
 module Main where
 import System.Environment
---import Types
 import Helpers
 import Show
 import CutElim

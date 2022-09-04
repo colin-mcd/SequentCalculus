@@ -1,1 +1,7 @@
-Cut (WeakeningR (Imp (Conj (Neg (Disj C A)) (Imp (Imp B (Disj C A)) (Imp C (Disj C A)))) (Conj (Disj C A) (Neg D))) (Leaf (Disj C A))) (WeakeningL (Imp (Conj (Neg (Disj C A)) (Imp (Imp B (Disj C A)) (Imp C (Disj C A)))) (Conj (Disj C A) (Neg D))) (Leaf (Disj C A)))
+Cut
+  (WeakeningR (Imp (Conj (Neg (Disj C A)) (Imp (Imp B (Disj C A)) (Imp C (Disj C A))))
+                   (Conj (Disj C A) (Neg D)))
+              (Leaf (Disj C A)))
+  (WeakeningL (Imp (Conj (Neg (Disj C A)) (Imp (Imp B (Disj C A)) (Imp C (Disj C A))))
+                   (Conj (Disj C A) (Neg D)))
+              (Leaf (Disj C A)))

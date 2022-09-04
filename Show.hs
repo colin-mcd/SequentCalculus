@@ -57,7 +57,7 @@ proofS2W collapseWeakRules x = weaken (h x) where
 
 instance Show EmphSent where
   show (EmphSent s False) = show s
-  show (EmphSent s True) = "{\\color{red} " ++ show s ++ "}"
+  show (EmphSent s True) = "{\\color{red} " ++ show s ++ "} "
 --  show (EmphSent s True) = "\\mathbf{" ++ show s ++ "}"
 
 instance Show Sequent where
